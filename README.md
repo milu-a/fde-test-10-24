@@ -21,9 +21,11 @@ agent/
 │   ├── gc017_quotes.json    #   甲乙丙丁原始报价（含列示差错，照原样录入）
 │   ├── gc017_events.json    #   CLARIFY-01 / CHANGE-01 结构化事件
 │   └── gc017_qualifications.json  # 资格材料登记（缺件/疑点）
-├── tests/                   # 54 个单元测试（unittest 标准库）
+├── tests/                   # 60 个单元测试（unittest 标准库）
 ├── run_gc017.py             # M1 全量回归：V1 原始 → V1 澄清后 → V2 变更后
 ├── gen_workbooks.py         # M2+M5 入口：三阶段 → 三份比选台账 xlsx
+├── tools/validate_quotes.py # M3 输出契约校验器（内网可用，纯标准库）
+├── docs/M3输出格式规范.md    # M3→M4→M1 数据契约（含硬约束清单）
 └── out/                     # 导出的三版台账 JSON + xlsx
 ```
 
