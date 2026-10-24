@@ -12,12 +12,13 @@ from pathlib import Path
 from .matcher import match_line
 
 
-def run(quotes: dict, catalog: dict, synonyms: dict):
+def run(quotes: dict, catalog: dict, synonyms: dict, kb=None):
     """对整份 M3 输出做归一匹配。返回 (matched, report, review)。
 
     matched: 深拷贝并回填 item/note 的完整 quotes（未匹配行保持 item=null）
     report:  各层命中统计与疑似重复
-    review:  待人工确认清单（语义提案 + 未匹配，含候选）
+    review:  待人工确认清单（语义提案 + 未匹配，含知识库提示）
+    kb:      知识库（可选）——为语义提案提供历史确认映射与先例提示
     """
     matched = copy.deepcopy(quotes)
     report = {"exact": 0, "synonym": 0, "proposal": 0, "unmatched": 0, "duplicates": 0}
@@ -27,7 +28,7 @@ def run(quotes: dict, catalog: dict, synonyms: dict):
         for ln in sj.get("lines", []):
             if ln.get("item"):                       # M3 已给编号：视为人工已确认，不重算
                 continue
-            res = match_line(ln.get("name", ""), catalog, synonyms)
+            res = match_line(ln.get("name", ""), catalog, synonyms, kb=kb)
             if res.auto:
                 ln["item"] = res.item_id
                 ln["note"] = (ln.get("note", "") + "；" if ln.get("note") else "") + f"M4：{res.basis}"

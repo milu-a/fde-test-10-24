@@ -13,10 +13,12 @@ sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
 from engine.loader import load_all
+from kb import KnowledgeBase
 from matching import confirm, run
 from matching.pipeline import dump_json, load_json
 
 SYNONYMS = ROOT / "data" / "synonyms.json"
+KB_CASES = ROOT / "data" / "kb_cases.json"
 
 
 def main():
@@ -39,7 +41,8 @@ def main():
     src = Path(args[1] if args[0] == "-o" else args[0])
     data = load_json(src)
 
-    matched, report, review = run(data, catalog, load_json(SYNONYMS))
+    matched, report, review = run(data, catalog, load_json(SYNONYMS),
+                                  kb=KnowledgeBase(KB_CASES, SYNONYMS))
 
     out = ROOT / "out" / f"{src.stem}_matched.json"
     dump_json(matched, out)

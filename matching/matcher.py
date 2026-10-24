@@ -42,11 +42,12 @@ def _bigrams(s: str) -> set:
     return {s[i:i + 2] for i in range(len(s) - 1)} if len(s) > 1 else {s}
 
 
-def propose(name: str, catalog: dict) -> dict:
+def propose(name: str, catalog: dict, kb=None) -> dict:
     """语义匹配插座：当前为字符二元组 Jaccard 占位实现。
 
-    接入本地 LLM 时替换本函数：输入 (原始名, 清单)，输出
-    {"item_id": str|None, "score": float, "basis": str}。AI 只提案，不回填。
+    接入本地 LLM 时替换本函数：输入 (原始名, 清单, 知识库)，输出
+    {"item_id", "score", "basis", "hints"}。知识库（kb）提供历史确认映射与
+    先例作为 few-shot 提示——AI 只提案，不回填。
     """
     target = normalize_name(name)
     best_id, best_score = None, 0.0
@@ -58,11 +59,15 @@ def propose(name: str, catalog: dict) -> dict:
         score = len(a & b) / len(a | b) if a | b else 0.0
         if score > best_score:
             best_id, best_score = cid, score
+    hints = kb.hints_for_match(name) if kb is not None else []
+    basis = f"与「{name}」字符相似度{best_score:.0%}（语义提案占位算法，待人工确认）"
+    if hints:
+        basis += "；知识库提示：" + "；".join(h["text"] for h in hints)
     return {"item_id": best_id, "score": round(best_score, 2),
-            "basis": f"与「{name}」字符相似度{best_score:.0%}（语义提案占位算法，待人工确认）"}
+            "basis": basis, "hints": hints}
 
 
-def match_line(name: str, catalog: dict, synonyms: dict) -> MatchResult:
+def match_line(name: str, catalog: dict, synonyms: dict, kb=None) -> MatchResult:
     """对单个原始分项名做三层匹配。catalog: {id: {"name": ...}}；synonyms: {"entries": [...]}"""
     n = normalize_name(name)
     if not n:
@@ -78,9 +83,10 @@ def match_line(name: str, catalog: dict, synonyms: dict) -> MatchResult:
             return MatchResult(e["item"], "synonym", 1.0,
                                f"同义词表：{e['raw']}→{e['item']}" + (f"（{basis}）" if basis else ""))
 
-    p = propose(name, catalog)                            # 3) 语义提案（不自动回填）
+    p = propose(name, catalog, kb=kb)                     # 3) 语义提案（不自动回填）
     if p["item_id"] and p["score"] >= _PROPOSAL_THRESHOLD:
         cat = catalog[p["item_id"]]
         return MatchResult(None, "proposal", p["score"],
-                           f"语义提案：相似{p['score']:.0%}，或即「{cat['name']}」——待人工确认")
-    return MatchResult(None, "unmatched", p["score"], "M4未匹配：清单中无近似项，待人工确认")
+                           f"语义提案：相似{p['score']:.0%}，或即「{cat['name']}」——待人工确认；{p['basis']}")
+    return MatchResult(None, "unmatched", p["score"],
+                       "M4未匹配：清单中无近似项，待人工确认" + (f"；{p['basis']}" if p["hints"] else ""))
