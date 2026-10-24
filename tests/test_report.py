@@ -11,7 +11,9 @@ from openpyxl import load_workbook
 
 from engine import load_all
 from engine.money import D
-from report import HEADERS, SHEET_ORDER, write_ledger
+from report import SHEET_ORDER, headers_for, write_ledger
+
+SUPS4 = ["甲", "乙", "丙", "丁"]
 
 QUALIFIERS = [
     {"supplier": "甲", "category": "营业执照摘要", "doc": "MAT-A-001", "submitted": "已提交",
@@ -70,8 +72,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(self.wb_raw.sheetnames, SHEET_ORDER)
         for name in SHEET_ORDER:
             ws = self.wb_raw[name]
-            got = [ws.cell(row=1, column=i).value for i in range(1, len(HEADERS[name]) + 1)]
-            self.assertEqual(got, HEADERS[name], f"{name} 表头与模板不一致")
+            got = [ws.cell(row=1, column=i).value for i in range(1, len(headers_for(name, SUPS4)) + 1)]
+            self.assertEqual(got, headers_for(name, SUPS4), f"{name} 表头与模板不一致")
 
     # ---------------- 对比表 ----------------
     def test_db_raw_key_cells(self):

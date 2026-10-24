@@ -19,6 +19,20 @@ TEMPLATE = ROOT.parent / "04 报价各说各话，工程分包怎么比？" / "0
 OUT = ROOT / "out"
 
 
+def _rate_map(ns, clarified):
+    """原税率展示列：申报态取报价数据，澄清后取 DECLARE_TAX 事件——不写死供应商名。"""
+    declares = {a.supplier: a.new for a in ns.events["clarify"] if a.op == "DECLARE_TAX"}
+    out = {}
+    for s, sj in ns.quotes_raw["suppliers"].items():
+        tj = sj.get("tax", {})
+        if tj.get("state") in ("已声明", "已澄清"):
+            r = tj.get("rate")
+        else:
+            r = declares.get(s) if clarified else None
+        out[s] = f"{float(r)*100:g}%" if r else "未声明"
+    return out
+
+
 def main():
     ns = load_all()
     b = ns.builder
@@ -36,17 +50,14 @@ def main():
     qty_v2 = {**catalog_qty, "C08": catalog["C08"]["qty"] + 12}  # 60→72
 
     stages = [
-        ("GC-017_比选台账_V1原始.xlsx", v1,
-         {"甲": "6%", "乙": "未声明", "丙": "6%", "丁": "6%"},
+        ("GC-017_比选台账_V1原始.xlsx", v1, _rate_map(ns, False),
          catalog_qty, None,
          "台账版本：V1 原始（澄清前，异常线索最全；乙税率未声明，含税口径不可比）"),
-        ("GC-017_比选台账_V1澄清后.xlsx", v1c,
-         {"甲": "6%", "乙": "6%", "丙": "6%", "丁": "6%"},
+        ("GC-017_比选台账_V1澄清后.xlsx", v1c, _rate_map(ns, True),
          catalog_qty, None,
          "台账版本：V1 澄清后（CLARIFY-01 已回填，全程留痕见「操作记录」）"),
-        ("GC-017_比选台账_V2变更后.xlsx", v2,
-         {"甲": "6%", "乙": "6%", "丙": "6%", "丁": "6%"},
-         qty_v2, {s: v1c.totals[s]["hs"] for s in ("甲", "乙", "丙", "丁")},
+        ("GC-017_比选台账_V2变更后.xlsx", v2, _rate_map(ns, True),
+         qty_v2, {s: v1c.totals[s]["hs"] for s in v1c.totals},
          "台账版本：V2 变更后（CHANGE-01：C08低应变 60根→72根，四家单价税率沿用；V1基线与V1澄清后台账另行保留）"),
     ]
 

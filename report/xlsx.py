@@ -11,19 +11,29 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-SUPS = ["甲", "乙", "丙", "丁"]
+# 供应商清单完全由数据决定（每次比选 3–6 家），不从常量来；
+# 对比表的供应商列名 = f"{供应商}含税金额"，写模板时按表头匹配、缺列自动补插。
 
 SHEET_ORDER = ["对比表", "需补充事项", "操作记录", "报价明细", "资格材料清单"]
 
-HEADERS = {
-    "对比表": ["清单编号", "名称", "单位", "数量", "甲含税金额", "乙含税金额",
-              "丙含税金额", "丁含税金额", "差异及待核对", "来源定位"],
+FIXED_HEADERS = {
     "需补充事项": ["事项编号", "供应商", "清单编号", "问题", "所需材料", "处理状态", "依据"],
     "操作记录": ["操作时间", "操作者", "供应商", "分项", "原值", "新值", "变更依据"],
     "报价明细": ["供应商", "清单编号", "原始分项", "原单位", "原数量", "原单价", "原税率",
                "原金额", "统一单位", "统一数量", "未税金额", "税额", "含税金额", "折算依据", "来源位置"],
     "资格材料清单": ["供应商", "材料类别", "文件编号", "提交情况", "有效期", "待补充事项", "复核状态"],
 }
+DB_FIXED = ["清单编号", "名称", "单位", "数量"]
+DB_TAIL = ["差异及待核对", "来源定位"]
+
+
+def _headers_for(name, sups):
+    if name == "对比表":
+        return DB_FIXED + [f"{s}含税金额" for s in sups] + DB_TAIL
+    return FIXED_HEADERS[name]
+
+
+headers_for = _headers_for   # 对外导出名
 
 WIDTHS = {
     "对比表": [10, 18, 6, 8, 14, 14, 14, 14, 42, 46],
@@ -116,7 +126,7 @@ def _need_items(led, qualifiers=None, closure_led=None):
         })
 
     for item, per in led.rows.items():
-        for sup in SUPS:
+        for sup in per:
             for c in per[sup]:
                 # 附件单列场景（如丙C13）已由"未并入"事项覆盖，不再另立泛化漏报项
                 has_attach = any("未并入" in f for f in c.flags)
@@ -128,7 +138,7 @@ def _need_items(led, qualifiers=None, closure_led=None):
                         add(sup, item, cat, c.source)
                 if "参考区间" in (c.note or ""):
                     add(sup, item, "区间", c.source)
-    for sup in SUPS:
+    for sup in led.totals:
         for f in led.totals[sup]["flags"]:
             cat = _cat_of(f)
             if cat:
@@ -152,9 +162,9 @@ def _amount_or_text(c, value):
     return "税率未给" if value is None else float(value)
 
 
-def _diff_text(per):
+def _diff_text(per, sups):
     parts = []
-    for sup in SUPS:
+    for sup in sups:
         fs = [f for c in per[sup] for f in c.flags
               if not any(k in f for k in EXCLUDE_DIFF)]
         if fs:
@@ -162,8 +172,8 @@ def _diff_text(per):
     return "；".join(parts)
 
 
-def _src_text(per):
-    parts = [f"{sup}：{per[sup][0].source}" for sup in SUPS
+def _src_text(per, sups):
+    parts = [f"{sup}：{per[sup][0].source}" for sup in sups
              if per[sup][0].source != "—"]
     return "；".join(parts)
 
@@ -178,13 +188,13 @@ def _put(ws, r, col, v, num=False, bold=False):
     return cell
 
 
-def _fill_headers(wb, template_path):
+def _fill_headers(sups, template_path):
     if template_path and Path(template_path).exists():
         wb = load_workbook(template_path)
         for name in SHEET_ORDER:
             if name not in wb.sheetnames:
                 ws = wb.create_sheet(name)
-                for i, h in enumerate(HEADERS[name], 1):
+                for i, h in enumerate(_headers_for(name, sups), 1):
                     ws.cell(row=1, column=i, value=h)
         for name in SHEET_ORDER:
             ws = wb[name]
@@ -195,17 +205,38 @@ def _fill_headers(wb, template_path):
         wb.remove(wb.active)
         for name in SHEET_ORDER:
             ws = wb.create_sheet(name)
-            for i, h in enumerate(HEADERS[name], 1):
+            for i, h in enumerate(_headers_for(name, sups), 1):
                 ws.cell(row=1, column=i, value=h)
     return wb
 
 
-def _style(wb):
+def _db_colmap(ws, sups):
+    """对比表列定位：按表头匹配「{供应商}含税金额」；模板缺该供应商列时在「差异及待核对」前补插。"""
+    def scan():
+        return {ws.cell(row=1, column=c).value: c
+                for c in range(1, ws.max_column + 1) if ws.cell(row=1, column=c).value}
+    hdr = scan()
+    for s in sups:
+        if not any(isinstance(h, str) and h.startswith(s) and h.endswith("含税金额")
+                   for h in hdr):
+            diff_col = hdr["差异及待核对"]
+            ws.insert_cols(diff_col)
+            ws.cell(row=1, column=diff_col, value=f"{s}含税金额")
+            hdr = scan()
+    return hdr
+
+
+def _style(wb, sups):
     for name in SHEET_ORDER:
         ws = wb[name]
-        for i, w in enumerate(WIDTHS[name], 1):
+        headers = _headers_for(name, sups)
+        if name == "对比表":
+            widths = [10, 18, 6, 8] + [14] * len(sups) + [42, 46]
+        else:
+            widths = WIDTHS[name]
+        for i, w in enumerate(widths, 1):
             ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
-        for i in range(1, len(HEADERS[name]) + 1):
+        for i in range(1, len(headers) + 1):
             cell = ws.cell(row=1, column=i)
             cell.font = Font(bold=True)
             cell.fill = HEADER_FILL
@@ -225,18 +256,20 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
                   处理状态再对当前版本求值；缺省用 led 自身）
     """
     qty_map = qty_map or {}
-    wb = _fill_headers(None, template_path)
+    sups = list(led.totals.keys())
+    wb = _fill_headers(sups, template_path)
 
     # ---------------- 对比表 ----------------
     ws = wb["对比表"]
+    colmap = _db_colmap(ws, sups)
     r = 2
     for item, per in led.rows.items():
         cat = catalog[item]
-        _put(ws, r, 1, item)
-        _put(ws, r, 2, cat["name"])
-        _put(ws, r, 3, cat["unit"])
-        _put(ws, r, 4, float(qty_map.get(item, cat["qty"])))
-        for k, sup in enumerate(SUPS):
+        _put(ws, r, colmap["清单编号"], item)
+        _put(ws, r, colmap["名称"], cat["name"])
+        _put(ws, r, colmap["单位"], cat["unit"])
+        _put(ws, r, colmap["数量"], float(qty_map.get(item, cat["qty"])))
+        for sup in sups:
             ls = per[sup]
             if ls[0].status != "已计算":
                 v = "未报"
@@ -244,37 +277,39 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
                 v = "税率未给"
             else:
                 v = sum(x.hs for x in ls)   # 同分项多行（重复未澄清）按列示原样合计
-            _put(ws, r, 5 + k, v, num=not isinstance(v, str))
-        _put(ws, r, 9, _diff_text(per))
-        _put(ws, r, 10, _src_text(per))
+            _put(ws, r, colmap[f"{sup}含税金额"], v, num=not isinstance(v, str))
+        _put(ws, r, colmap["差异及待核对"], _diff_text(per, sups))
+        _put(ws, r, colmap["来源定位"], _src_text(per, sups))
         r += 1
 
     hs = lambda sup: led.totals[sup]["hs"]
-    _put(ws, r, 1, "合计", bold=True)
-    _put(ws, r, 2, "按明细计算", bold=True)
-    for k, sup in enumerate(SUPS):
+    _put(ws, r, colmap["清单编号"], "合计", bold=True)
+    _put(ws, r, colmap["名称"], "按明细计算", bold=True)
+    for sup in sups:
         v = hs(sup)
-        _put(ws, r, 5 + k, v if v is not None else "—", num=v is not None, bold=True)
-    _put(ws, r, 9, "；".join(f"{s}：{f}" for s in SUPS for f in led.totals[s]["flags"]))
+        _put(ws, r, colmap[f"{sup}含税金额"], v if v is not None else "—",
+             num=v is not None, bold=True)
+    _put(ws, r, colmap["差异及待核对"],
+         "；".join(f"{s}：{f}" for s in sups for f in led.totals[s]["flags"]))
     r += 1
-    _put(ws, r, 1, "列示合计")
-    _put(ws, r, 2, "供应商原报，未核实")
-    for k, sup in enumerate(SUPS):
+    _put(ws, r, colmap["清单编号"], "列示合计")
+    _put(ws, r, colmap["名称"], "供应商原报，未核实")
+    for sup in sups:
         st = led.totals[sup]["stated"]
-        _put(ws, r, 5 + k, st, num=st is not None)
+        _put(ws, r, colmap[f"{sup}含税金额"], st, num=st is not None)
     r += 1
     if prev_totals is not None:
-        _put(ws, r, 1, "较V1差异")
-        _put(ws, r, 2, "V2合计−V1澄清后合计（含税口径）")
-        for k, sup in enumerate(SUPS):
+        _put(ws, r, colmap["清单编号"], "较V1差异")
+        _put(ws, r, colmap["名称"], "V2合计−V1澄清后合计（含税口径）")
+        for sup in sups:
             if hs(sup) is not None and prev_totals.get(sup) is not None:
                 d = hs(sup) - prev_totals[sup]
-                _put(ws, r, 5 + k, f"{float(d):+,.2f}")
+                _put(ws, r, colmap[f"{sup}含税金额"], f"{float(d):+,.2f}")
         r += 1
     r += 1
     for note in (version_note, "金额单位：元；本表由规则引擎生成，金额计算零LLM参与；异常仅提示，价格合理性与选商由评审人员判断"):
         if note:
-            _put(ws, r, 1, note)
+            _put(ws, r, colmap["清单编号"], note)
             r += 1
 
     # ---------------- 需补充事项 ----------------
@@ -301,7 +336,7 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
     # ---------------- 报价明细 ----------------
     ws = wb["报价明细"]
     r = 2
-    for sup in SUPS:
+    for sup in sups:
         for item, per in led.rows.items():
             cat = catalog[item]
             for c in per[sup]:
@@ -335,7 +370,7 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
         _put(ws, r, 7, q["review"])
         r += 1
 
-    _style(wb)
+    _style(wb, sups)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
