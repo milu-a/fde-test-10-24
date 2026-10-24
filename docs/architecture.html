@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>分包比选对账 Agent · 系统架构（ORBIS）</title>
+<link rel="stylesheet" href="../webapp/static/fonts/fonts.css">
+<style>
+  /* ORBIS CI Styleguide 2026：品牌六色 + 黑白（透明度允许）、Montserrat/黑体、8px 网格、Petrol 连接线 */
+  :root { --blue:#00488a; --night:#16203b; --petrol:#00a3a3; --pink:#db3360;
+          --gray:#555555; --hell:#a7a8aa; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font:14px/1.6 "Montserrat","Microsoft YaHei","PingFang SC",sans-serif; background:#fff; color:#000; }
+  .page { width:1240px; margin:0 auto; }
+  header { background:var(--night); color:#fff; padding:16px 24px; display:flex; align-items:center;
+           border-bottom:2px solid var(--petrol); }
+  header .t h1 { font-size:20px; font-weight:700; letter-spacing:0; }
+  header .t p { font-size:13px; color:rgba(255,255,255,.75); }
+  header .spacer { flex:1; }
+  header img { height:30px; }
+  .strip { height:4px; background:linear-gradient(90deg, var(--blue), var(--petrol)); }
+  main { padding:16px 24px 8px; }
+  .layer { display:flex; gap:12px; align-items:stretch; }
+  .tag { flex:0 0 168px; border-radius:8px; padding:10px 12px; color:#fff; display:flex;
+         flex-direction:column; justify-content:center; }
+  .tag b { font-size:14px; font-weight:700; }
+  .tag span { font-size:11.5px; opacity:.85; line-height:1.5; }
+  .mods { flex:1; display:flex; gap:8px; }
+  .mod { flex:1; border:1px solid var(--hell); border-radius:8px; padding:8px 10px; background:#fff; }
+  .mod b { display:block; font-size:13px; font-weight:700; color:var(--night); }
+  .mod span { font-size:11.5px; color:var(--gray); line-height:1.55; display:block; margin-top:2px; }
+  .mod.hl { border-color:var(--petrol); box-shadow:inset 0 -2px 0 var(--petrol); }
+  .connector { height:26px; display:flex; justify-content:center; align-items:center; }
+  .connector .line { width:2px; height:100%; background:var(--petrol); position:relative; }
+  .connector .line::after { content:""; position:absolute; bottom:-1px; left:-4px;
+      border:5px solid transparent; border-top:6px solid var(--petrol); border-bottom:0; }
+  .connector .lbl { margin-left:10px; font-size:11.5px; color:var(--petrol); font-weight:600; }
+  .l1 .tag { background:var(--blue); }
+  .l2 .tag { background:var(--gray); }
+  .l3 .tag { background:var(--night); }
+  .l4 .tag { background:var(--petrol); }
+  .l5 { margin-top:12px; border:1px solid var(--hell); border-left:3px solid var(--pink);
+        border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:16px; }
+  .l5 b { color:var(--night); font-size:14px; white-space:nowrap; }
+  .l5 span { font-size:12.5px; color:var(--gray); }
+  .pipe { margin-top:14px; border:1px solid var(--hell); border-radius:8px; padding:10px 14px; }
+  .pipe h2 { font-size:13px; color:var(--night); font-weight:700; margin-bottom:8px;
+             border-left:3px solid var(--petrol); padding-left:8px; }
+  .steps { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .step { background:rgba(0,72,138,.08); color:var(--blue); border-radius:8px;
+          padding:4px 10px; font-size:12.5px; font-weight:600; white-space:nowrap; }
+  .arrow { color:var(--petrol); font-weight:700; }
+  .facts { margin-top:14px; display:flex; gap:8px; }
+  .fact { flex:1; border:1px solid var(--hell); border-radius:8px; padding:8px 10px; text-align:center; }
+  .fact b { display:block; font-size:13px; color:var(--night); }
+  .fact span { font-size:11.5px; color:var(--gray); }
+  footer { padding:10px 24px 20px; font-size:11.5px; color:var(--gray); display:flex; }
+  footer .spacer { flex:1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="t">
+      <h1>分包比选对账 Agent · 系统架构</h1>
+      <p>GC-017 上海山南勘测 · 三权分立：AI 只读 · 规则引擎算 · 人确认　|　金额计算零 LLM · 全程留痕 · 离线内网</p>
+    </div>
+    <div class="spacer"></div>
+    <img src="../webapp/static/logos/ORBIS-Logo-d-RGB.svg" alt="ORBIS">
+  </header>
+  <div class="strip"></div>
+
+  <main>
+    <div class="layer l1">
+      <div class="tag"><b>① 读取与对齐</b><span>AI 只参与「读」<br>M3 导入 + M4 匹配</span></div>
+      <div class="mods">
+        <div class="mod"><b>M3 多格式导入</b><span>Excel / PDF / 扫描件 / 微信截图 → 结构化原始行（照抄原则，含来源定位）</span></div>
+        <div class="mod"><b>契约校验</b><span>validate_quotes：数字字符串 / 未知 null / 必带来源定位，违规即拦截</span></div>
+        <div class="mod hl"><b>M4 归一匹配（三层）</b><span>规范化精确 → 同义词表 → 语义提案（AI 插座，只提案不自动入账，人工确认）</span></div>
+      </div>
+    </div>
+    <div class="connector"><div class="line"></div><span class="lbl">quotes（含来源定位）</span></div>
+
+    <div class="layer l2">
+      <div class="tag"><b>② 基准与事件</b><span>人工治理<br>原件永不覆盖</span></div>
+      <div class="mods">
+        <div class="mod"><b>标准比选清单 + 参考区间</b><span>对比基准 / 数量与单位基准 / 未税单价区间（M5 只提示不裁决）</span></div>
+        <div class="mod"><b>行业同义词表</b><span>人工确认即积累，跨项目复用（越用越准）</span></div>
+        <div class="mod hl"><b>Amendment 事件 + CHANGE</b><span>税率声明 / 补价 / 更正 / 去重 / 单位确认 / 工程量变更——全部带依据留痕</span></div>
+      </div>
+    </div>
+    <div class="connector"><div class="line"></div></div>
+
+    <div class="layer l3">
+      <div class="tag"><b>③ M1 计算引擎</b><span>零 LLM · 纯规则<br>Decimal · 可单测</span></div>
+      <div class="mods">
+        <div class="mod"><b>税率状态机</b><span>未声明 → 待澄清 → 已声明/已澄清，仅终态可折算，不得默认补写</span></div>
+        <div class="mod"><b>单位三态</b><span>一致可比 / 待澄清照原样计 / 书面确认后才换算（台班≠项）</span></div>
+        <div class="mod"><b>双方向 ROUND</b><span>含税⇄未税恒从原始口径只折算一次，防舍入漂移</span></div>
+        <div class="mod"><b>M5 校验异常</b><span>参考区间 / 缺项 / 重复 / 合计误差 / 抄错 / 发票票型——只举旗不裁决</span></div>
+        <div class="mod"><b>操作留痕</b><span>原值→新值→依据→时间→操作者，对齐台账「操作记录」表</span></div>
+      </div>
+    </div>
+    <div class="connector"><div class="line"></div></div>
+
+    <div class="layer l4">
+      <div class="tag"><b>④ 呈现与协作</b><span>M2 台账 + M6 交互</span></div>
+      <div class="mods">
+        <div class="mod"><b>M2 比选台账 xlsx</b><span>企业模板 5 表，在模板副本上填写；V1/V2 基线互不覆盖，较 V1 差异行</span></div>
+        <div class="mod"><b>M6 交互层（本地 Web）</b><span>分色对比表 → 点格追溯原文 → 待办一键回填 → 变更生成 V2 → 一键导出</span></div>
+        <div class="mod hl"><b>硬规则现场拦截</b><span>无依据声明税率 / 无书面说明换算 → 拒绝并显示规则原文</span></div>
+      </div>
+    </div>
+
+    <div class="l5">
+      <b>⑤ 人 —— 商务部 / 评审组</b>
+      <span>澄清确认（关键闸门）· 资质有效性与价格合理性裁决 · 最终选商。<b>系统不自动推荐最低价、不自动改写异常、金额不经大模型。</b></span>
+    </div>
+
+    <div class="pipe">
+      <h2>处理管线（七步）</h2>
+      <div class="steps">
+        <span class="step">导入抽取 M3</span><span class="arrow">→</span>
+        <span class="step">归一匹配 M4</span><span class="arrow">→</span>
+        <span class="step">口径解析（税率/单位状态机）</span><span class="arrow">→</span>
+        <span class="step">计算引擎 M1</span><span class="arrow">→</span>
+        <span class="step">校验异常 M5</span><span class="arrow">→</span>
+        <span class="step">台账生成 M2</span><span class="arrow">→</span>
+        <span class="step">人机协作循环 M6</span>
+      </div>
+    </div>
+
+    <div class="facts">
+      <div class="fact"><b>零 LLM 计算</b><span>金额全由规则引擎完成，可复算可审计</span></div>
+      <div class="fact"><b>88 项单元测试</b><span>GC-017 三阶段底稿数字全对</span></div>
+      <div class="fact"><b>全离线</b><span>纯标准库 + 本地 Web（仅本机回环）</span></div>
+      <div class="fact"><b>原件永不覆盖</b><span>V1 基线保留，修改全程留痕</span></div>
+      <div class="fact"><b>数据契约</b><span>M3 输出规范 + 校验器，换项目即换数据</span></div>
+    </div>
+  </main>
+
+  <footer>
+    <span>GC-017 · 分包比选对账 Agent　|　代码：agent/（GitHub milu-a/fde-test-10-24 · m1-engine）　|　运行：python run_webapp.py</span>
+    <div class="spacer"></div>
+    <span>We digitalize you</span>
+  </footer>
+</div>
+</body>
+</html>

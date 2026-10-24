@@ -1,7 +1,56 @@
-# 分包比选对账 Agent · M1 引擎 + M2 台账 + M5 校验 + M4 归一匹配
+# 分包比选对账 Agent · M1 引擎 + M2 台账 + M5 校验 + M4 归一匹配 + M6 交互层
 
-项目 GC-017（上海山南勘测 · 分包比选）三权分立架构中的 **"算"**、**"出成果"**、**"举旗"** 与 **"对齐"**。
-金额计算 **零 LLM 参与**，全程 Decimal，可单元测试，可离线内网部署（engine/matching/tools 仅用 Python 标准库；M2 写 xlsx 用 openpyxl）。
+项目 GC-017（上海山南勘测 · 分包比选）三权分立架构中的 **"算"**、**"出成果"**、**"举旗"**、**"对齐"** 与 **"协作"**。
+金额计算 **零 LLM 参与**，全程 Decimal，可单元测试，可离线内网部署（engine/matching/tools/webapp 仅用 Python 标准库；M2 写 xlsx 用 openpyxl）。
+
+## 系统架构
+
+```mermaid
+flowchart TB
+    subgraph L1["① 读取与对齐 —— AI 只参与「读」（M3 + M4）"]
+        direction LR
+        M3["M3 多格式导入<br/>Excel / PDF / 扫描 / 截图"]
+        VV["契约校验<br/>validate_quotes"]
+        M4["M4 归一匹配<br/>精确 → 同义词表 → 语义提案（AI 插座·不自动入账）"]
+    end
+    subgraph L2["② 基准与事件 —— 人工治理 · 原件永不覆盖"]
+        direction LR
+        CAT["标准比选清单<br/>+ 参考区间"]
+        SYN["行业同义词表<br/>确认即积累"]
+        EVT["Amendment 事件<br/>税率/补价/更正/去重/单位确认<br/>+ CHANGE 工程量变更"]
+    end
+    subgraph L3["③ M1 计算引擎 —— 零 LLM · 纯规则 · 可单元测试"]
+        direction LR
+        TAX["税率状态机<br/>仅终态可折算"]
+        UNIT["单位三态<br/>无书面说明不换算"]
+        CAL["双方向 ROUND<br/>从原始口径只折算一次"]
+        M5["M5 校验<br/>区间/缺项/重复/合计/票型"]
+        AUD["操作留痕<br/>原值→新值→依据"]
+    end
+    subgraph L4["④ 呈现与协作（M2 + M6）"]
+        direction LR
+        XLS["比选台账 xlsx<br/>企业模板 5 表 · V1/V2 基线"]
+        WEB["M6 交互层（本地 Web）<br/>对比 / 回填 / 追溯 / 变更"]
+    end
+    HUMAN["⑤ 人 —— 商务部 / 评审组<br/>澄清确认 · 资质与价格裁决 · 最终选商（系统不自动推荐最低价）"]
+
+    M3 --> VV --> M4
+    CAT --> M4
+    SYN -. 确认回灌 .-> M4
+    M4 -->|"quotes（含来源定位）"| CAL
+    CAT --> CAL
+    M5 --> CAL
+    EVT --> CAL
+    CAL --> AUD
+    AUD --> XLS
+    AUD --> WEB
+    WEB -->|"澄清回填 / 变更起草"| EVT
+    XLS --> HUMAN
+    WEB --> HUMAN
+    HUMAN -. 确认后入账 .-> EVT
+```
+
+（PPT/汇报用 ORBIS 规范架构图：`docs/architecture.html`，浏览器打开后截图即可。）
 
 ## 目录结构
 
@@ -25,7 +74,10 @@ agent/
 │   ├── gc017_events.json    #   CLARIFY-01 / CHANGE-01 结构化事件
 │   ├── gc017_qualifications.json  # 资格材料登记（缺件/疑点）
 │   └── synonyms.json        #   行业同义词表（人工确认即积累，跨项目复用）
-├── tests/                   # 75 个单元测试（unittest 标准库）
+│   └── kb_cases.json        #   案例库种子：GC-017 异常/澄清/匹配先例 11 条（结案归档）
+├── kb/                      # 知识层：异常案例/澄清先例检索 + 同义词 few-shot（给 AI 的提示，非裁决）
+│   └── store.py             #   related_item / hints_for_match / precedents_for_clarify / 人确认写入闸门
+├── tests/                   # 88 个单元测试（unittest 标准库）
 ├── run_gc017.py             # M1 全量回归：V1 原始 → V1 澄清后 → V2 变更后
 ├── gen_workbooks.py         # M2+M5 入口：三阶段 → 三份比选台账 xlsx
 ├── run_m4.py                # M4 入口：归一匹配 / --confirm 回灌词库
@@ -34,7 +86,24 @@ agent/
 └── out/                     # 导出的三版台账 JSON + xlsx
 ```
 
-## M4 归一匹配（规则第四条：异名结合范围匹配；不主动换算单位）
+## M6 人机协作界面（本地交付）
+
+本地 Web 交互层（对比表追溯 / 待办一键回填 / 硬规则现场拦截 / 工程量变更 V2 / 操作留痕 / 导入导出），
+按 ORBIS CI 规范实现，**代码为本地交付，暂不入库**；架构见上方 Mermaid 图与 `docs/architecture.html`。
+
+## 知识层 kb（历史数据 → AI 的提示）
+
+三权分立中 AI 的两个插座（M4 语义提案、澄清起草）由知识层供弹。**检索结果只是提示，先例不构成裁决**（规则五/七）；**写入必须带 `confirmed_by`**（人确认闸门，飞轮的质量生命线）。
+
+- **案例库** `data/kb_cases.json`：异常案例 / 澄清先例 / 匹配先例，GC-017 的 11 条结案归档做种子
+  （超区间→商务保留原报价、重复→只计一次、附件未并入→加计、项≠台班→书面确认均分……），
+  每条 = 现象 → 澄清 → 结论 → 教训 → 依据，来源可溯；
+- **检索**：纯规则（标签 + 二元组重合打分），内网零依赖；`related_item(item, supplier)` 供追溯面板、
+  `precedents_for_clarify(text)` 供澄清起草、`hints_for_match(name)` 供语义提案 few-shot；
+- **接线点**：M4 `propose(name, catalog, kb)` 提案时附"知识库提示"（历史确认映射 + 匹配先例）——
+  提示不改变"只提案不回填"的纪律；M6 追溯面板对每个单元格显示"知识库先例（提示 · 非裁决）"；
+- **企业落地**：检索器原位替换为本地向量库（faiss/chromadb），接口不变；结案归档动作
+  （成交价 + 最终台账 + 澄清结论）即知识库的日常进料。
 
 - **三层递进，只有确定性两层允许自动回填** `item`：
   1. 规范化精确（全角/半角、空白、括号后缀归一后与清单名全等）；
