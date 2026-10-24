@@ -1,7 +1,7 @@
-# 分包比选对账 Agent · M1 税率与计算引擎
+# 分包比选对账 Agent · M1 税率与计算引擎 + M2 台账生成器
 
-项目 GC-017（上海山南勘测 · 分包比选）三权分立架构中的 **"算"**：确定性规则引擎。
-金额计算 **零 LLM 参与**，全程 Decimal，可单元测试，可离线内网部署（仅用 Python 标准库）。
+项目 GC-017（上海山南勘测 · 分包比选）三权分立架构中的 **"算"** 与 **"出成果"**：确定性规则引擎 + 台账生成器。
+金额计算 **零 LLM 参与**，全程 Decimal，可单元测试，可离线内网部署（引擎仅用 Python 标准库；M2 写 xlsx 用 openpyxl）。
 
 ## 目录结构
 
@@ -14,13 +14,17 @@ agent/
 │   ├── ledger.py            #   台账装配：事件应用、合计、操作留痕
 │   ├── loader.py            #   JSON 数据装载
 │   └── units.py             #   单位口径（与税率状态机同构，骨架复用）
+├── report/                  # M2 台账生成器
+│   └── xlsx.py              #   Ledger → 《比选输出模板》5-sheet xlsx（模板副本填写）
 ├── data/                    # GC-017 结构化兜底数据（M3/M4 产物同构）
 │   ├── gc017_catalog.json   #   统一清单 C01–C15 + 参考区间（区间 M5 用）
 │   ├── gc017_quotes.json    #   甲乙丙丁原始报价（含列示差错，照原样录入）
-│   └── gc017_events.json    #   CLARIFY-01 / CHANGE-01 结构化事件
-├── tests/                   # 34 个单元测试（unittest 标准库）
-├── run_gc017.py             # 全量回归：V1 原始 → V1 澄清后 → V2 变更后
-└── out/                     # 导出的三版台账 JSON
+│   ├── gc017_events.json    #   CLARIFY-01 / CHANGE-01 结构化事件
+│   └── gc017_qualifications.json  # 资格材料登记（缺件/疑点）
+├── tests/                   # 42 个单元测试（unittest 标准库）
+├── run_gc017.py             # M1 全量回归：V1 原始 → V1 澄清后 → V2 变更后
+├── gen_workbooks.py         # M2 入口：三阶段 → 三份比选台账 xlsx
+└── out/                     # 导出的三版台账 JSON + xlsx
 ```
 
 ## 实现的业务规则（对照《项目范围与计算规则》七条）
@@ -39,9 +43,23 @@ agent/
 
 ```bash
 cd agent
-python -m unittest discover -s tests   # 34 个单测
-python run_gc017.py                    # 三阶段回归 + 底稿核对 + JSON 导出
+python -m unittest discover -s tests   # 42 个单测（引擎 34 + 台账 8）
+python run_gc017.py                    # M1 三阶段回归 + 底稿核对 + JSON 导出
+python gen_workbooks.py                # M2 生成三份比选台账 xlsx 到 out/
 ```
+
+## M2 台账生成器设计要点
+
+- **模板保真**：表头与《比选输出模板.xlsx》逐字一致；找到企业模板文件时在其副本上填写（保留原格式），
+  独立检出（如 GitHub）时按模板表头新建；
+- **三版台账互不覆盖**：V1 原始 / V1 澄清后 / V2 变更后 各一份 xlsx，V1 基线保留（规则第六条）；
+- **需补充事项跨版本累计**：问题清单固定从 V1 原始台账生成（避免旗标消除后事项消失），
+  处理状态再对当前版本求值——已澄清的显示"已澄清关闭"并附依据，未决的保持"待补充"；
+- **闭环判定只认 CLARIFY-01 依据**：CHANGE-01 工程量变更留痕不会误关异常事项（乙 C08 区间异常
+  在 V2 中依然开放）；乙 C08 异常、乙/丁资质事项按澄清与变更纪要保持未关闭；
+- **税率/合计类事项按供应商折叠**，不逐行刷屏；资格缺件/疑点入「需补充事项」且保持开放，
+  「资格材料清单」保留登记原文（系统只整理缺件与疑点，有效性由评审人员判断）；
+- V2 对比表附「较V1差异」行，落实变更通知"保留 V1 基线与金额差异"的要求。
 
 ## GC-017 底稿数字（回归基准）
 
@@ -60,9 +78,10 @@ V1 原始阶段引擎当场抓出的错：乙 C07 重复两行、乙 C09/C11 漏
 ## 与其余模块的接口
 
 - **上游 M3/M4**：产出与 `data/gc017_quotes.json` 同构的 JSON（含来源定位），即可进引擎；
-- **下游 M2**：消费 `Ledger`（`ledger_to_dict()` 已可序列化），按输出模板写 5 个 sheet；
-- **M5**：消费同一 `Ledger` 的 `flags` 与 `catalog.range` 出异常提示；
-- **M6**：`LedgerBuilder.build()` 天然多版本（V1/V1澄清/V2 互不污染），回溯用 `ComputedLine.source`。
+- **M2**：`gen_workbooks.py` 消费 `Ledger` 产出 5-sheet 台账 xlsx（对比表/需补充事项/操作记录/报价明细/资格材料清单）；
+- **M5**：消费同一 `Ledger` 的 `flags` 与 `catalog.range` 出异常提示（乙 C08 区间线索现挂行备注）；
+- **M6**：`LedgerBuilder.build()` 天然多版本（V1/V1澄清/V2 互不污染），回溯用 `ComputedLine.source`；
+  需补充事项的"累计+闭环"模式（`issue_source`）即人机协作循环的台账表达。
 
 ## 已知边界
 

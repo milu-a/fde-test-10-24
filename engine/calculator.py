@@ -30,6 +30,9 @@ class ComputedLine:
     tax_amt: Optional[Decimal]       # 税额
     hs: Optional[Decimal]            # 含税
     status: str                      # 已计算 / 未报
+    orig_qty: Optional[Decimal] = None    # 报价单上的原报数量（区别于变更后统一数量）
+    stated_amount: Optional[Decimal] = None  # 报价单列示金额（比对基准）
+    note: str = ""                        # 原始行备注（如超参考区间线索）
     flags: List[str] = field(default_factory=list)
     basis: str = ""                  # 折算依据
     source: str = "—"                # 来源定位
@@ -107,7 +110,8 @@ def compute_line(line, tax: TaxProfile, cat: dict, unit_state: str,
         name=line.name or cat.get("name", ""), unit=line.unit or cat.get("unit", ""),
         qty=qty, unit_price=line.unit_price, direction=line.direction.value,
         orig_amount=orig, ws=ws, tax_amt=tax_amt, hs=hs,
-        status=status, flags=flags, basis=basis,
+        status=status, orig_qty=line.qty, stated_amount=line.stated_amount,
+        note=line.note or "", flags=flags, basis=basis,
         source=line.source.label, tax_state=tax.state.value, unit_state=unit_state,
         instance=instance,
     )

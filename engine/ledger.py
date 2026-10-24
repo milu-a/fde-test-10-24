@@ -46,6 +46,7 @@ def _line_dict(c: ComputedLine) -> dict:
     return {
         "supplier": c.supplier, "item": c.item_id, "name": c.name, "unit": c.unit,
         "qty": s(c.qty), "direction": c.direction,
+        "orig_qty": s(c.orig_qty), "stated_amount": s(c.stated_amount), "note": c.note,
         "orig_amount": s(c.orig_amount), "ws": s(c.ws), "tax": s(c.tax_amt), "hs": s(c.hs),
         "status": c.status, "flags": list(c.flags), "basis": c.basis, "source": c.source,
         "tax_state": c.tax_state, "unit_state": c.unit_state, "instance": c.instance,

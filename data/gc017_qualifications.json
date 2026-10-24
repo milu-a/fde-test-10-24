@@ -1,0 +1,14 @@
+{
+  "source": "01 原始报价与清单/资格材料登记.xlsx（提交登记 + 要求清单）",
+  "review_note": "系统只整理缺件与疑点；资质覆盖范围和有效性由评审人员判断（要求清单原文）",
+  "rows": [
+    {"supplier": "甲", "category": "营业执照摘要", "doc": "MAT-A-001", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "甲", "category": "检测资质摘要", "doc": "MAT-A-002", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "乙", "category": "营业执照摘要", "doc": "MAT-B-001", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "乙", "category": "检测资质摘要", "doc": "", "submitted": "未提交", "validity": "", "note": "检测资质摘要待补充", "review": "缺件：未提交，阻塞评审"},
+    {"supplier": "丙", "category": "营业执照摘要", "doc": "MAT-C-001", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "丙", "category": "检测资质摘要", "doc": "MAT-C-002", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "丁", "category": "营业执照摘要", "doc": "MAT-D-001", "submitted": "已提交", "validity": "有效", "note": "", "review": "待评审复核"},
+    {"supplier": "丁", "category": "检测资质摘要", "doc": "MAT-D-002", "submitted": "已提交", "validity": "2026-08-31", "note": "资质2026-08-31到期，续期材料未提供", "review": "疑点：有效性待评审确认"}
+  ]
+}
