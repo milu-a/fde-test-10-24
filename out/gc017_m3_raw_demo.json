@@ -1,0 +1,790 @@
+{
+ "project": "GC-017",
+ "quote_date": "2026-09-18",
+ "note": "四家原始报价的结构化兜底（M3 多格式导入 + M4 归一匹配 的产物同构）。金额/单价一律字符串，保持原始口径；列示金额含原报差错（乙合计差200、丙C04多20），引擎照原样重算比对。",
+ "suppliers": {
+  "甲": {
+   "file": "01 原始报价与清单/甲方报价.xlsx",
+   "version": "A-V1 / 2026-09-18",
+   "direction": "含税",
+   "tax": {
+    "state": "已声明",
+    "rate": "0.06",
+    "evidence": {
+     "file": "甲方报价.xlsx",
+     "locator": "工作表「甲方含税报价」税率列（报价说明：按统一清单报价，机械进出场已在C13列明）"
+    },
+    "at": "2026-09-18"
+   },
+   "stated_total": "40545.00",
+   "lines": [
+    {
+     "item": null,
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "unit_price": "190.8",
+     "stated_amount": "2289.60",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第2行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "unit_price": "233.2",
+     "stated_amount": "4664.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第3行"
+     }
+    },
+    {
+     "item": null,
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "unit_price": "95.4",
+     "stated_amount": "2289.60",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第4行"
+     }
+    },
+    {
+     "item": null,
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "116.6",
+     "stated_amount": "2098.80",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第5行"
+     }
+    },
+    {
+     "item": null,
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "106",
+     "stated_amount": "1908.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第6行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "unit_price": "159",
+     "stated_amount": "954.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第7行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "unit_price": "84.8",
+     "stated_amount": "1696.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第8行"
+     }
+    },
+    {
+     "item": null,
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "unit_price": "90.1",
+     "stated_amount": "5406.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第9行"
+     }
+    },
+    {
+     "item": null,
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "unit_price": "477",
+     "stated_amount": "5724.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第10行"
+     }
+    },
+    {
+     "item": null,
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "unit_price": "127.2",
+     "stated_amount": "3816.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第11行"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "63.6",
+     "stated_amount": "636.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第12行"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "100.7",
+     "stated_amount": "1007.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第13行"
+     }
+    },
+    {
+     "item": null,
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "3180",
+     "stated_amount": "3180.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第14行"
+     }
+    },
+    {
+     "item": null,
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "unit_price": "742",
+     "stated_amount": "2968.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第15行"
+     }
+    },
+    {
+     "item": null,
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "1908",
+     "stated_amount": "1908.00",
+     "source": {
+      "file": "甲方报价.xlsx",
+      "locator": "工作表「甲方含税报价」第16行"
+     }
+    }
+   ]
+  },
+  "乙": {
+   "file": "01 原始报价与清单/乙方报价.pdf",
+   "version": "B-V1 / 2026-09-18",
+   "direction": "未税",
+   "tax": {
+    "state": "未声明",
+    "note": "乙方报价.pdf 第1页表头：以下单价为未税单价。税费口径待商务确认。→ 状态机停在「未声明」，澄清前含税口径不可折算"
+   },
+   "stated_total": "58375.00",
+   "lines": [
+    {
+     "item": null,
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "unit_price": "176.40",
+     "stated_amount": "2116.80",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第1行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "unit_price": "215.60",
+     "stated_amount": "4312.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第2行"
+     }
+    },
+    {
+     "item": null,
+     "name": "沉降点观测（建筑物）",
+     "unit": "点",
+     "qty": "24",
+     "unit_price": "88.20",
+     "stated_amount": "2116.80",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第3行"
+     },
+     "note": "异名同范围：对应统一清单C03建筑物沉降监测"
+    },
+    {
+     "item": null,
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "107.80",
+     "stated_amount": "1940.40",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第4行"
+     }
+    },
+    {
+     "item": null,
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "98.00",
+     "stated_amount": "1764.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第5行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "unit_price": "147.00",
+     "stated_amount": "882.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第6行"
+     }
+    },
+    {
+     "item": null,
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "unit_price": "78.40",
+     "stated_amount": "1568.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第7行"
+     },
+     "note": "与第8行完全相同（重复）"
+    },
+    {
+     "item": null,
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "unit_price": "78.40",
+     "stated_amount": "1568.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第8行"
+     },
+     "note": "与第7行完全相同（重复）"
+    },
+    {
+     "item": null,
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "unit_price": "500.00",
+     "stated_amount": "30000.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第9行"
+     },
+     "note": "CLARIFY-01：乙明确500.00元/根仍为当前报价、不修改，原因待商务评审；CHANGE-01后线索依然保留"
+    },
+    {
+     "item": null,
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "unit_price": null,
+     "stated_amount": null,
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第10行"
+     },
+     "note": "单价未填（漏报）"
+    },
+    {
+     "item": null,
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "unit_price": "117.60",
+     "stated_amount": "3528.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第11行"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "93.10",
+     "stated_amount": "931.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第12行"
+     }
+    },
+    {
+     "item": null,
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "2940.00",
+     "stated_amount": "2940.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第13行"
+     }
+    },
+    {
+     "item": null,
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "unit_price": "686.00",
+     "stated_amount": "2744.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第14行"
+     }
+    },
+    {
+     "item": null,
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "1764.00",
+     "stated_amount": "1764.00",
+     "source": {
+      "file": "乙方报价.pdf",
+      "locator": "第1页第15行"
+     }
+    }
+   ]
+  },
+  "丙": {
+   "file": "01 原始报价与清单/丙方扫描报价.pdf",
+   "version": "C-V1 / 2026-09-18",
+   "direction": "含税",
+   "tax": {
+    "state": "已声明",
+    "rate": "0.06",
+    "evidence": {
+     "file": "丙方扫描报价.pdf",
+     "locator": "费用附件C-V1-附件1（报价扫描-2.png）：税率6%"
+    },
+    "at": "2026-09-18"
+   },
+   "stated_total": "38505.84",
+   "stated_total_note": "主报价页服务合计，不含费用附件进出场费3,392.00元",
+   "item_notes": {
+    "C13": "费用附件单列含税3,392.00元，主报价页服务合计未并入（CLARIFY-01确认后加计一次）"
+   },
+   "lines": [
+    {
+     "item": null,
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "unit_price": "196.52",
+     "stated_amount": "2358.24",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C01"
+     }
+    },
+    {
+     "item": null,
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "unit_price": "240.20",
+     "stated_amount": "4804.00",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C02"
+     }
+    },
+    {
+     "item": null,
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "unit_price": "98.26",
+     "stated_amount": "2358.24",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C03"
+     }
+    },
+    {
+     "item": null,
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "120.10",
+     "stated_amount": "2181.80",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C04"
+     },
+     "note": "列示金额抄错：乘积应为18×120.10=2161.80"
+    },
+    {
+     "item": null,
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "109.18",
+     "stated_amount": "1965.24",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C05"
+     }
+    },
+    {
+     "item": null,
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "unit_price": "163.77",
+     "stated_amount": "982.62",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C06"
+     }
+    },
+    {
+     "item": null,
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "unit_price": "87.34",
+     "stated_amount": "1746.80",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C07"
+     }
+    },
+    {
+     "item": null,
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "unit_price": "92.80",
+     "stated_amount": "5568.00",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C08"
+     }
+    },
+    {
+     "item": null,
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "unit_price": "491.31",
+     "stated_amount": "5895.72",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C09"
+     }
+    },
+    {
+     "item": null,
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "unit_price": "131.02",
+     "stated_amount": "3930.60",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C10"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "65.51",
+     "stated_amount": "655.10",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C11"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "103.72",
+     "stated_amount": "1037.20",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C12"
+     }
+    },
+    {
+     "item": null,
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "unit_price": "764.26",
+     "stated_amount": "3057.04",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C14"
+     }
+    },
+    {
+     "item": null,
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "1965.24",
+     "stated_amount": "1965.24",
+     "source": {
+      "file": "报价扫描-1.png",
+      "locator": "条目C15"
+     }
+    }
+   ]
+  },
+  "丁": {
+   "file": "01 原始报价与清单/丁方报价截图-1.png",
+   "version": "D-V1 / 2026-09-18",
+   "direction": "含税",
+   "tax": {
+    "state": "已声明",
+    "rate": "0.06",
+    "evidence": {
+     "file": "丁方费用说明聊天.png",
+     "locator": "费用说明：含税报价，税率6%"
+    },
+    "at": "2026-09-18"
+   },
+   "stated_total": "41924.08",
+   "lines": [
+    {
+     "item": null,
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "unit_price": "198.43",
+     "stated_amount": "2381.16",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C01"
+     }
+    },
+    {
+     "item": null,
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "unit_price": "242.53",
+     "stated_amount": "4850.60",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C02"
+     }
+    },
+    {
+     "item": null,
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "unit_price": "99.22",
+     "stated_amount": "2381.28",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C03"
+     }
+    },
+    {
+     "item": null,
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "16",
+     "unit_price": "121.26",
+     "stated_amount": "1940.16",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C04"
+     },
+     "note": "原写16点，漏列2点（清单18点），CLARIFY-01更正"
+    },
+    {
+     "item": null,
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "unit_price": "110.24",
+     "stated_amount": "1984.32",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C05"
+     }
+    },
+    {
+     "item": null,
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "unit_price": "165.36",
+     "stated_amount": "992.16",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C06"
+     }
+    },
+    {
+     "item": null,
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "unit_price": "88.19",
+     "stated_amount": "1763.80",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C07"
+     }
+    },
+    {
+     "item": null,
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "unit_price": "93.70",
+     "stated_amount": "5622.00",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C08"
+     }
+    },
+    {
+     "item": null,
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "unit_price": "496.08",
+     "stated_amount": "5952.96",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C09"
+     }
+    },
+    {
+     "item": null,
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "unit_price": "132.29",
+     "stated_amount": "3968.70",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C10"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "66.14",
+     "stated_amount": "661.40",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C11"
+     }
+    },
+    {
+     "item": null,
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "unit_price": "104.73",
+     "stated_amount": "1047.30",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C12"
+     }
+    },
+    {
+     "item": null,
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "3307.20",
+     "stated_amount": "3307.20",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C13"
+     }
+    },
+    {
+     "item": null,
+     "name": "测量设备使用",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": null,
+     "stated_amount": "3086.72",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C14"
+     },
+     "note": "按「1项」报价，含几个台班待确认（丁方费用说明聊天.png 15:15）"
+    },
+    {
+     "item": null,
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "unit_price": "1984.32",
+     "stated_amount": "1984.32",
+     "source": {
+      "file": "丁方报价截图-1.png",
+      "locator": "条目C15"
+     }
+    }
+   ]
+  }
+ }
+}
