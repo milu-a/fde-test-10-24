@@ -1,0 +1,10 @@
+# API密钥（绝不入库）
+api_config.json
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时文件
+pdfpages_*/
+output/
