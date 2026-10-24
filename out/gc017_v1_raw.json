@@ -1,0 +1,1426 @@
+{
+ "version": "V1 原始报价（澄清前）",
+ "totals": {
+  "甲": {
+   "direction": "含税",
+   "ws": "38250.00",
+   "tax": "2295.00",
+   "hs": "40545.00",
+   "stated": "40545.00",
+   "flags": []
+  },
+  "乙": {
+   "direction": "未税",
+   "ws": "58175.00",
+   "tax": null,
+   "hs": null,
+   "stated": "58375.00",
+   "flags": [
+    "明细加总58,175.00与原报列示合计58,375.00差+200.00元（原报合计误差，据确认明细重算）",
+    "14行因税率未给未折算，相关口径合计不完整（未按0计，规则第二条）"
+   ]
+  },
+  "丙": {
+   "direction": "含税",
+   "ws": "36307.38",
+   "tax": "2178.46",
+   "hs": "38485.84",
+   "stated": "38505.84",
+   "flags": [
+    "明细加总38,485.84与原报列示合计38,505.84差+20.00元（原报合计误差，据确认明细重算）"
+   ]
+  },
+  "丁": {
+   "direction": "含税",
+   "ws": "39551.02",
+   "tax": "2373.06",
+   "hs": "41924.08",
+   "stated": "41924.08",
+   "flags": []
+  }
+ },
+ "rows": {
+  "C01": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C01",
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "2289.60",
+     "ws": "2160.00",
+     "tax": "129.60",
+     "hs": "2289.60",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第2行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C01",
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "direction": "未税",
+     "orig_amount": "2116.80",
+     "ws": "2116.80",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第1行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C01",
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "2358.24",
+     "ws": "2224.75",
+     "tax": "133.49",
+     "hs": "2358.24",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C01",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C01",
+     "name": "控制点复核",
+     "unit": "点",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "2381.16",
+     "ws": "2246.38",
+     "tax": "134.78",
+     "hs": "2381.16",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C01",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C02": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C02",
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "4664.00",
+     "ws": "4400.00",
+     "tax": "264.00",
+     "hs": "4664.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第3行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C02",
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "direction": "未税",
+     "orig_amount": "4312.00",
+     "ws": "4312.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第2行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C02",
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "4804.00",
+     "ws": "4532.08",
+     "tax": "271.92",
+     "hs": "4804.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C02",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C02",
+     "name": "地形测绘",
+     "unit": "亩",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "4850.60",
+     "ws": "4576.04",
+     "tax": "274.56",
+     "hs": "4850.60",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C02",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C03": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C03",
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "direction": "含税",
+     "orig_amount": "2289.60",
+     "ws": "2160.00",
+     "tax": "129.60",
+     "hs": "2289.60",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第4行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C03",
+     "name": "沉降点观测（建筑物）",
+     "unit": "点",
+     "qty": "24",
+     "direction": "未税",
+     "orig_amount": "2116.80",
+     "ws": "2116.80",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第3行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C03",
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "direction": "含税",
+     "orig_amount": "2358.24",
+     "ws": "2224.75",
+     "tax": "133.49",
+     "hs": "2358.24",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C03",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C03",
+     "name": "建筑物沉降监测",
+     "unit": "点",
+     "qty": "24",
+     "direction": "含税",
+     "orig_amount": "2381.28",
+     "ws": "2246.49",
+     "tax": "134.79",
+     "hs": "2381.28",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C03",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C04": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C04",
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "含税",
+     "orig_amount": "2098.80",
+     "ws": "1980.00",
+     "tax": "118.80",
+     "hs": "2098.80",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第5行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C04",
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "未税",
+     "orig_amount": "1940.40",
+     "ws": "1940.40",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第4行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C04",
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "含税",
+     "orig_amount": "2161.80",
+     "ws": "2039.43",
+     "tax": "122.37",
+     "hs": "2161.80",
+     "status": "已计算",
+     "flags": [
+      "列示金额与数量×单价差+20.00元（疑似抄写错误，待澄清）"
+     ],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C04",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C04",
+     "name": "基坑水平位移监测",
+     "unit": "点",
+     "qty": "16",
+     "direction": "含税",
+     "orig_amount": "1940.16",
+     "ws": "1830.34",
+     "tax": "109.82",
+     "hs": "1940.16",
+     "status": "已计算",
+     "flags": [
+      "数量与清单不符：报16点，清单18点（不允许自行改变工程量）"
+     ],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C04",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C05": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C05",
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "含税",
+     "orig_amount": "1908.00",
+     "ws": "1800.00",
+     "tax": "108.00",
+     "hs": "1908.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第6行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C05",
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "未税",
+     "orig_amount": "1764.00",
+     "ws": "1764.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第5行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C05",
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "含税",
+     "orig_amount": "1965.24",
+     "ws": "1854.00",
+     "tax": "111.24",
+     "hs": "1965.24",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C05",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C05",
+     "name": "基坑竖向位移监测",
+     "unit": "点",
+     "qty": "18",
+     "direction": "含税",
+     "orig_amount": "1984.32",
+     "ws": "1872.00",
+     "tax": "112.32",
+     "hs": "1984.32",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C05",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C06": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C06",
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "direction": "含税",
+     "orig_amount": "954.00",
+     "ws": "900.00",
+     "tax": "54.00",
+     "hs": "954.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第7行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C06",
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "direction": "未税",
+     "orig_amount": "882.00",
+     "ws": "882.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第6行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C06",
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "direction": "含税",
+     "orig_amount": "982.62",
+     "ws": "927.00",
+     "tax": "55.62",
+     "hs": "982.62",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C06",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C06",
+     "name": "地下水位观测",
+     "unit": "孔",
+     "qty": "6",
+     "direction": "含税",
+     "orig_amount": "992.16",
+     "ws": "936.00",
+     "tax": "56.16",
+     "hs": "992.16",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C06",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C07": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C07",
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "1696.00",
+     "ws": "1600.00",
+     "tax": "96.00",
+     "hs": "1696.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第8行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C07",
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "direction": "未税",
+     "orig_amount": "1568.00",
+     "ws": "1568.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）",
+      "同一分项出现2行且内容一致（重复，暂按列示原样计入）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第7行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    },
+    {
+     "supplier": "乙",
+     "item": "C07",
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "direction": "未税",
+     "orig_amount": "1568.00",
+     "ws": "1568.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）",
+      "同一分项出现2行且内容一致（重复，暂按列示原样计入）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第8行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 2
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C07",
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "1746.80",
+     "ws": "1647.92",
+     "tax": "98.88",
+     "hs": "1746.80",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C07",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C07",
+     "name": "地表沉降监测",
+     "unit": "点",
+     "qty": "20",
+     "direction": "含税",
+     "orig_amount": "1763.80",
+     "ws": "1663.96",
+     "tax": "99.84",
+     "hs": "1763.80",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C07",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C08": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C08",
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "direction": "含税",
+     "orig_amount": "5406.00",
+     "ws": "5100.00",
+     "tax": "306.00",
+     "hs": "5406.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第9行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C08",
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "direction": "未税",
+     "orig_amount": "30000.00",
+     "ws": "30000.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第9行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C08",
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "direction": "含税",
+     "orig_amount": "5568.00",
+     "ws": "5252.83",
+     "tax": "315.17",
+     "hs": "5568.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C08",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C08",
+     "name": "低应变检测",
+     "unit": "根",
+     "qty": "60",
+     "direction": "含税",
+     "orig_amount": "5622.00",
+     "ws": "5303.77",
+     "tax": "318.23",
+     "hs": "5622.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C08",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C09": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C09",
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "5724.00",
+     "ws": "5400.00",
+     "tax": "324.00",
+     "hs": "5724.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第10行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C09",
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "direction": "未税",
+     "orig_amount": null,
+     "ws": null,
+     "tax": null,
+     "hs": null,
+     "status": "未报",
+     "flags": [
+      "单价未填，金额不可计（未知值不当0，规则第四条）"
+     ],
+     "basis": "",
+     "source": "乙方报价.pdf · 第1页第10行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C09",
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "5895.72",
+     "ws": "5562.00",
+     "tax": "333.72",
+     "hs": "5895.72",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C09",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C09",
+     "name": "声波透射检测",
+     "unit": "根",
+     "qty": "12",
+     "direction": "含税",
+     "orig_amount": "5952.96",
+     "ws": "5616.00",
+     "tax": "336.96",
+     "hs": "5952.96",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C09",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C10": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C10",
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "direction": "含税",
+     "orig_amount": "3816.00",
+     "ws": "3600.00",
+     "tax": "216.00",
+     "hs": "3816.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第11行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C10",
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "direction": "未税",
+     "orig_amount": "3528.00",
+     "ws": "3528.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第11行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C10",
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "direction": "含税",
+     "orig_amount": "3930.60",
+     "ws": "3708.11",
+     "tax": "222.49",
+     "hs": "3930.60",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C10",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C10",
+     "name": "混凝土回弹检测",
+     "unit": "构件",
+     "qty": "30",
+     "direction": "含税",
+     "orig_amount": "3968.70",
+     "ws": "3744.06",
+     "tax": "224.64",
+     "hs": "3968.70",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C10",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C11": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C11",
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "636.00",
+     "ws": "600.00",
+     "tax": "36.00",
+     "hs": "636.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第12行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C11",
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": null,
+     "direction": "未税",
+     "orig_amount": null,
+     "ws": null,
+     "tax": null,
+     "hs": null,
+     "status": "未报",
+     "flags": [
+      "报价中无此分项"
+     ],
+     "basis": "",
+     "source": "—",
+     "tax_state": "未声明",
+     "unit_state": "—",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C11",
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "655.10",
+     "ws": "618.02",
+     "tax": "37.08",
+     "hs": "655.10",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C11",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C11",
+     "name": "土工含水率试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "661.40",
+     "ws": "623.96",
+     "tax": "37.44",
+     "hs": "661.40",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C11",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C12": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C12",
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "1007.00",
+     "ws": "950.00",
+     "tax": "57.00",
+     "hs": "1007.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第13行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C12",
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "未税",
+     "orig_amount": "931.00",
+     "ws": "931.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第12行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C12",
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "1037.20",
+     "ws": "978.49",
+     "tax": "58.71",
+     "hs": "1037.20",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C12",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C12",
+     "name": "土工密度试验",
+     "unit": "组",
+     "qty": "10",
+     "direction": "含税",
+     "orig_amount": "1047.30",
+     "ws": "988.02",
+     "tax": "59.28",
+     "hs": "1047.30",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C12",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C13": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C13",
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "3180.00",
+     "ws": "3000.00",
+     "tax": "180.00",
+     "hs": "3180.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第14行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C13",
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "direction": "未税",
+     "orig_amount": "2940.00",
+     "ws": "2940.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第13行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C13",
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": null,
+     "direction": "含税",
+     "orig_amount": null,
+     "ws": null,
+     "tax": null,
+     "hs": null,
+     "status": "未报",
+     "flags": [
+      "报价中无此分项",
+      "费用附件单列含税3,392.00元，主报价页服务合计未并入（CLARIFY-01确认后加计一次）"
+     ],
+     "basis": "",
+     "source": "—",
+     "tax_state": "已声明",
+     "unit_state": "—",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C13",
+     "name": "机械进出场",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "3307.20",
+     "ws": "3120.00",
+     "tax": "187.20",
+     "hs": "3307.20",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C13",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  },
+  "C14": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C14",
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "direction": "含税",
+     "orig_amount": "2968.00",
+     "ws": "2800.00",
+     "tax": "168.00",
+     "hs": "2968.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第15行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C14",
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "direction": "未税",
+     "orig_amount": "2744.00",
+     "ws": "2744.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第14行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C14",
+     "name": "测量设备使用",
+     "unit": "台班",
+     "qty": "4",
+     "direction": "含税",
+     "orig_amount": "3057.04",
+     "ws": "2884.00",
+     "tax": "173.04",
+     "hs": "3057.04",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C14",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C14",
+     "name": "测量设备使用",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "3086.72",
+     "ws": "2912.00",
+     "tax": "174.72",
+     "hs": "3086.72",
+     "status": "已计算",
+     "flags": [
+      "无单价，按列示金额（整项/总额口径）计",
+      "单位口径待澄清：报「项」≠清单「台班」，无书面说明不得换算（规则第四条）"
+     ],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C14",
+     "tax_state": "已声明",
+     "unit_state": "不一致待澄清",
+     "instance": 1
+    }
+   ]
+  },
+  "C15": {
+   "甲": [
+    {
+     "supplier": "甲",
+     "item": "C15",
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "1908.00",
+     "ws": "1800.00",
+     "tax": "108.00",
+     "hs": "1908.00",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "甲方报价.xlsx · 工作表「甲方含税报价」第16行",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "乙": [
+    {
+     "supplier": "乙",
+     "item": "C15",
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "direction": "未税",
+     "orig_amount": "1764.00",
+     "ws": "1764.00",
+     "tax": null,
+     "hs": null,
+     "status": "已计算",
+     "flags": [
+      "税率未给：含税不可折算（显示为不可比，不当0，规则第二条）"
+     ],
+     "basis": "原报未税；税率未声明，含税口径不可折算",
+     "source": "乙方报价.pdf · 第1页第15行",
+     "tax_state": "未声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丙": [
+    {
+     "supplier": "丙",
+     "item": "C15",
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "1965.24",
+     "ws": "1854.00",
+     "tax": "111.24",
+     "hs": "1965.24",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "报价扫描-1.png · 条目C15",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ],
+   "丁": [
+    {
+     "supplier": "丁",
+     "item": "C15",
+     "name": "成果整理与报告",
+     "unit": "项",
+     "qty": "1",
+     "direction": "含税",
+     "orig_amount": "1984.32",
+     "ws": "1872.00",
+     "tax": "112.32",
+     "hs": "1984.32",
+     "status": "已计算",
+     "flags": [],
+     "basis": "原报含税：含税=ROUND(数量×含税单价,2)；未税=ROUND(含税/(1+税率),2)，税率0.06",
+     "source": "丁方报价截图-1.png · 条目C15",
+     "tax_state": "已声明",
+     "unit_state": "一致",
+     "instance": 1
+    }
+   ]
+  }
+ },
+ "audit": [
+  {
+   "操作时间": "2026-09-18",
+   "操作者": "供应商报价",
+   "供应商": "甲",
+   "分项": "税率",
+   "原值": "未声明",
+   "新值": "已声明 0.06",
+   "变更依据": "甲方报价.xlsx · 工作表「甲方含税报价」税率列（报价说明：按统一清单报价，机械进出场已在C13列明）"
+  },
+  {
+   "操作时间": "2026-09-18",
+   "操作者": "供应商报价",
+   "供应商": "丙",
+   "分项": "税率",
+   "原值": "未声明",
+   "新值": "已声明 0.06",
+   "变更依据": "丙方扫描报价.pdf · 费用附件C-V1-附件1（报价扫描-2.png）：税率6%"
+  },
+  {
+   "操作时间": "2026-09-18",
+   "操作者": "供应商报价",
+   "供应商": "丁",
+   "分项": "税率",
+   "原值": "未声明",
+   "新值": "已声明 0.06",
+   "变更依据": "丁方费用说明聊天.png · 费用说明：含税报价，税率6%"
+  }
+ ]
+}
