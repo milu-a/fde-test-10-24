@@ -1,0 +1,36 @@
+{
+  "clarify": {
+    "id": "CLARIFY-01",
+    "at": "2026-09-19 10:00",
+    "operator": "商务人员",
+    "doc": "02 报价澄清/供应商澄清纪要.txt · CLARIFY-01",
+    "actions": [
+      {"op": "DECLARE_TAX", "supplier": "乙", "new": "0.06", "note": "乙确认税率6%"},
+      {"op": "ADD_LINE", "supplier": "乙", "item": "C09",
+       "payload": {"name": "声波透射检测", "unit": "根", "qty": "12", "unit_price": "460.00", "locator": "澄清补录单价"},
+       "note": "C09漏报，补未税单价460.00元/根×12根"},
+      {"op": "ADD_LINE", "supplier": "乙", "item": "C11",
+       "payload": {"name": "土工含水率试验", "unit": "组", "qty": "10", "unit_price": "62.00", "locator": "澄清补录单价"},
+       "note": "C11漏报，补未税单价62.00元/组×10组"},
+      {"op": "DEDUPE", "supplier": "乙", "item": "C07", "note": "C07两行属重复，只计一次"},
+      {"op": "SET_FIELD", "supplier": "丙", "item": "C04", "field": "stated_amount", "old": "2181.80", "new": "2161.80",
+       "note": "分项金额抄错多写20.00元，按数量×单价乘积更正（单价与数量不变）"},
+      {"op": "ADD_LINE", "supplier": "丙", "item": "C13",
+       "payload": {"name": "机械进出场", "unit": "项", "qty": "1", "stated_amount": "3392.00", "locator": "费用附件C-V1-附件1（原主报价未并入）", "note": "进出场费按附件加计一次"},
+       "note": "附件进出场含税3,392.00元作为C13加计一次"},
+      {"op": "RESOLVE_UNIT", "supplier": "丁", "item": "C14",
+       "payload": {"quote_unit": "项", "items_per_quote_unit": 4},
+       "note": "确认1项含本项目4个台班，范围与标准清单完全相同；总价均分到4台班，不另加费用"},
+      {"op": "SET_FIELD", "supplier": "丁", "item": "C04", "field": "qty", "old": "16", "new": "18",
+       "note": "原写16点漏列2点应为18点，单价不变，金额重算"}
+    ]
+  },
+  "change": {
+    "id": "CHANGE-01",
+    "at": "2026-09-20 09:00",
+    "operator": "项目负责人",
+    "doc": "03 工程量变更/项目变更通知.txt · CHANGE-01",
+    "qty_overrides": {"C08": "72"},
+    "note": "C08低应变检测60根→72根，其他数量与范围不变；四家确认沿用各自已澄清的单价与税率。另存V2对比台账，保留V1（60根）价格基线、变更依据及金额差异"
+  }
+}

@@ -63,8 +63,9 @@
     <div class="inbox">
       <div class="card panel">
         <h3><span class="petrol-line"></span>原件归档区（只读）</h3>
-        <p class="hint">上传即登记归属：项目 → 供应商 → 文件角色。原件永不覆盖，输出区物理分离。</p>
-        <div class="dropzone">拖拽文件到此处登记，或 <b>点击选择</b>　——　需指定：供应商 / 文件角色 /（报价正件）版本号</div>
+        <p class="hint">上传即落位只读原件区（同名另存不覆盖），识别通道自动路由；缺失值只标记不硬猜。</p>
+        <div class="dropzone" id="dropzone">拖拽文件到此处，或 <b>点击选择</b>　——　登记到本项目 · 识别通道自动路由</div>
+        <div id="recList" style="margin-bottom:12px"></div>
         <div id="fileList"></div>
       </div>
       <div class="card panel">
@@ -142,13 +143,9 @@
         <div class="split-note">🔒 输出与原件物理分离：原件区 data/raw 只读；本工作台输出至独立输出目录。补录、修改与应用事件全部自动写入「操作记录」表。</div>
       </div>
       <div class="card panel">
-        <h3><span class="petrol-line"></span>导出物（企业五表模板）</h3>
-        <p class="hint">适配企业既有比选输出模板，商务部使用习惯不变。</p>
-        <div class="sheet-card"><span class="no">1</span><div><b>报价对比表</b><span>C01–C15 × 四家 · 双口径并列 · 差异及待核对 · 来源定位列</span></div></div>
-        <div class="sheet-card"><span class="no">2</span><div><b>报价明细</b><span>原始口径与统一口径并列 · 折算依据 · 来源位置（页/行/条目）</span></div></div>
-        <div class="sheet-card"><span class="no">3</span><div><b>资格材料清单</b><span>提交情况 · 有效期疑点 · 待补充事项（状态不随版本丢失）</span></div></div>
-        <div class="sheet-card"><span class="no">4</span><div><b>需补充事项</b><span>未关闭异常与待办 · 依据 · 处理状态</span></div></div>
-        <div class="sheet-card"><span class="no">5</span><div><b>操作记录</b><span>时间 · 操作者 · 对象 · 原值 → 新值 · 变更依据</span></div></div>
+        <h3><span class="petrol-line"></span>三版本台账下载（M2 生成器）</h3>
+        <p class="hint">三版互不覆盖——V1 原始 / V1 澄清后 / V2 变更后各一份（规则第六条：原件永不覆盖）。导出即写出 5-sheet xlsx：对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单，表头与企业《比选输出模板》逐字一致。</p>
+        <div id="stageDl"></div>
         <h3 style="margin:14px 0 6px"><span class="petrol-line"></span>导出历史</h3>
         <div id="expHistory"></div>
       </div>
@@ -198,8 +195,6 @@
 
 <div id="toasts"></div>
 
-<script src="data/demo/gc017.js"></script>
-<script src="data/app/engine.js"></script>
 <script src="data/app/app.js"></script>
 </body>
 </html>
