@@ -1,0 +1,25 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- Node(ai/ 子项目)----
+node_modules/
+
+# ---- 运行时数据与生成产物 ----
+backend/data/projects.json
+backend/inbox/
+backend/out/
+pdfpages_*/
+output/
+
+# ---- 密钥与本地配置(绝不入库)----
+backend/read-file/api_config.json
+.env
+
+# ---- IDE / 操作系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

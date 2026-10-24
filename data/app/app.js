@@ -27,6 +27,12 @@
     DEDUPE: "剔除重复行", RESOLVE_UNIT: "单位口径确认"
   };
   const STAGE_SHORT = { v1_raw: "V1 原始（澄清前）", v1_clarified: "V1 澄清后", v2: "V2 变更后" };
+  /* 项目状态机（界面设计文档 §6.1）→ 徽章色 */
+  const STATUS_CLS = {
+    "配置中": "st-working", "收件中": "st-working", "归集中": "st-working",
+    "待澄清": "st-clarify", "台账已出": "st-clarify",
+    "已交付评审": "st-review", "已定标": "st-review", "已归档": "st-archived"
+  };
 
   const state = {
     view: "home", tab: 2, stage: "v1_raw",
@@ -34,6 +40,8 @@
     boot: null, ledgers: {}, issues: {},
     queue: [], online: false, exports: [], manual: [],
     recognition: { engines: [], results: [] },
+    projects: [], nextId: "", cur: null,   // cur = 当前打开的比选项目（新建项目空壳工作区）
+    proj: null,                            // 当前项目的 board 数据（清单/识别登记/引擎台账/匹配报告）
     anFilter: "全部", diffA: "v1_raw", diffB: "v1_clarified"
   };
 
@@ -73,16 +81,45 @@
 
   /* ---------------- 首页 ---------------- */
   function renderHome() {
-    $("#projGrid").innerHTML = "";
+    $("#projGrid").innerHTML = state.projects.length ? state.projects.map((p) => `
+      <div class="proj-card" data-proj="${esc(p.id)}">
+        <div class="row1"><span class="pid">${esc(p.id)}</span><span class="pname">${esc(p.name)}</span>
+          <span class="spacer" style="flex:1"></span><span class="badge ${STATUS_CLS[p.status] || ""}">${esc(p.status)}</span></div>
+        <div class="meta"><span>负责人 <b>${esc(p.owner)}</b></span><span>报价 <b>0 家</b></span>
+          <span>台账 <b>—</b></span><span>待办 <b>0</b> 项</span></div>
+        <div class="act">${esc(p.created_at)} · ${esc(p.owner)} 创建项目 · 点击进入工作区</div>
+      </div>`).join("")
+      : `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">暂无比选项目——点击右上角「＋ 新建比选项目」创建第一轮比选；创建后进入工作区归集报价文件。</p>`;
   }
 
   /* ---------------- 工作区上下文条 ---------------- */
   function renderCtx() {
+    if (state.cur) {
+      const pb = state.proj;
+      const proj = (pb && pb.project) || state.cur;
+      $("#ctxTitle").textContent = `${proj.id} · ${proj.name}`;
+      $("#ctxBadge").textContent = proj.status;
+      $("#ctxBadge").className = `badge ${STATUS_CLS[proj.status] || ""}`;
+      const supN = pb ? pb.suppliers_order.length : 0;
+      const hasLed = !!(pb && pb.ledger && Object.keys(pb.ledger.rows || {}).length);
+      const umN = pb && pb.match_report ? pb.match_report.unmatched.length : 0;
+      $("#ctxMeta").innerHTML = `<span>负责人 <b>${esc(proj.owner)}</b></span><span>报价 <b>${supN} 家</b></span>
+        <span>台账 <b>${hasLed ? "V1 原始" : "—"}</b></span><span>未关闭待办 <b>${umN}</b></span>`;
+      $("#verSwitch").innerHTML = hasLed ? `<button class="active">V1 原始</button>` : "";
+      $("#verLabel").style.display = hasLed ? "" : "none";
+      $("#tabCnt1").textContent = umN; $("#tabCnt1").className = "cnt" + (umN ? "" : " zero");
+      $("#tabCnt3").textContent = 0; $("#tabCnt3").className = "cnt zero";
+      return;
+    }
     $("#verSwitch").innerHTML = Object.keys(STAGE_SHORT).map((k) =>
       `<button data-ver="${k}" class="${state.stage === k ? "active" : ""}" ${state.unlocked[k] ? "" : "disabled"}>${STAGE_SHORT[k]}</button>`).join("");
+    $("#verLabel").style.display = "";
     const led = curLedger();
     const openIssues = (state.issues[state.stage] || []).filter((x) => !x.closed).length;
     const pendQ = state.queue.filter((q) => q.status === "pending").length;
+    $("#ctxTitle").textContent = `${state.boot.project.id} · 园区测量检测分包`;
+    $("#ctxBadge").textContent = "待澄清";
+    $("#ctxBadge").className = "badge st-clarify";
     $("#ctxVersion").textContent = STAGE_SHORT[state.stage];
     $("#ctxMeta").innerHTML = `<span>状态 <b>待澄清</b></span><span>报价 <b>4/4 家</b></span>
       <span>台账版本 <b>${STAGE_SHORT[state.stage]}</b></span>
@@ -121,7 +158,36 @@
 
     $("#recList").innerHTML = state.recognition.results.length
       ? state.recognition.results.map(recCard).join("")
-      : `<p class="hint" style="margin:4px 0 10px">尚无上传识别记录。内置样例的识别结果已随项目预载（见下方原件归档区）。</p>`;
+      : `<p class="hint" style="margin:4px 0 10px">${state.cur
+          ? "尚无上传识别记录——拖拽或点击上方区域，登记该项目的第一份报价原件。"
+          : "尚无上传识别记录。内置样例的识别结果已随项目预载（见下方原件归档区）。"}</p>`;
+
+    if (state.cur) {
+      const pb = state.proj;
+      const myRes = pb ? state.recognition.results.filter((r) => (pb.file_ids || []).includes(r.id)) : [];
+      $("#recList").innerHTML = myRes.length
+        ? myRes.map(recCard).join("")
+        : `<p class="hint" style="margin:4px 0 10px">尚无上传识别记录——拖拽或点击上方区域，登记该项目的第一份报价原件。</p>`;
+      const pfiles = (pb ? pb.files : []).map((f) => {
+        const kind = f.file.endsWith(".xlsx") ? ["excel", "XLSX"] : f.file.endsWith(".pdf") ? ["pdf", "PDF"] : ["scan", "IMG"];
+        return `<div class="file-item"><span class="ficon ${kind[0]}">${kind[1]}</span>
+          <span class="fname"><b>${esc(f.file)}</b><span>${esc(f.vendor || "?")}方候选 · ${esc(f.channel_desc || f.channel || "")} · ${esc(f.ts || "")}</span></span>
+          <span class="badge st-archived" style="font-size:11px">原件只读</span></div>`;
+      });
+      $("#fileList").innerHTML = pfiles.join("");
+      const um = pb && pb.match_report ? pb.match_report.unmatched : [];
+      $("#queueList").innerHTML = um.length ? um.map((u) => `
+        <div class="qcard low">
+          <div class="thumb" style="display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:11px">无图</div>
+          <div>
+            <div class="qhead"><b style="font-size:13px">${esc(u.vendor)} · ${esc(u.name || "（空名称行）")}</b>
+              <span class="conf">未匹配 · 不入账</span></div>
+            <p>${esc(u.basis)}　（文件：${esc(u.file)}）</p>
+          </div>
+        </div>`).join("")
+        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无待确认字段：识别结果中的低置信、缺失与未匹配字段会进入此队列，人工逐条确认后才入账。</p>`;
+      return;
+    }
 
     const files = [];
     SUPS.forEach((sup) => {
@@ -158,13 +224,19 @@
     for (const f of fileList) {
       toast(`正在识别 <b>${esc(f.name)}</b>…（通道由引擎链自动路由，任何一环失败不硬猜）`);
       try {
-        const r = await fetch(`/api/recognize?filename=${encodeURIComponent(f.name)}`,
+        const q = state.cur ? `&project=${encodeURIComponent(state.cur.id)}` : "";
+        const r = await fetch(`/api/recognize?filename=${encodeURIComponent(f.name)}${q}`,
           { method: "POST", body: f });
         const j = await r.json();
         if (j.error) { toast(`识别失败：${esc(j.error)}`); continue; }
         await loadRecognition();
-        if (state.tab === 1) renderInbox();
-        toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条${j.needs_model ? "（已转人工，不硬猜）" : ""}`);
+        if (state.cur) {
+          await loadProjectBoard();
+          toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条，已登记进项目并重算台账。`);
+        } else {
+          if (state.tab === 1) renderInbox();
+          toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条${j.needs_model ? "（已转人工，不硬猜）" : ""}`);
+        }
       } catch (e) {
         toast(`识别请求失败：${esc(e.message)}——请确认已运行 python server.py`);
       }
@@ -178,7 +250,74 @@
   function ledRawCell(itemId, sup) {
     return state.ledgers.v1_raw.rows[itemId][sup][0];
   }
+  /* 新项目台账：识别 → M4 匹配 → 引擎计算的 V1 原始结果（单版本，无跨版本状态比对） */
+  function renderProjectLedger() {
+    const pb = state.proj;
+    $("#ctxVersion").textContent = "V1 原始";
+    $("#ctxVersion").className = "badge st-clarify";
+    $("#legendBar").classList.remove("hidden");
+    const sups = pb ? pb.suppliers_order : [];
+    const hasData = !!(pb && pb.ledger && sups.length && Object.keys(pb.ledger.rows || {}).length);
+    $("#ledgerEmpty").classList.toggle("hidden", hasData);
+    $("#ledgerWrap").classList.toggle("hidden", !hasData);
+    if (!hasData) return;
+    const led = pb.ledger;
+    const head = `<tr><th class="l lock lock1">清单编号</th><th class="l lock lock2">名称</th><th class="l lock lock3">单位</th>
+      <th class="l lock lock4">数量</th>${sups.map((v) => `<th>${esc(v)} · 含税（未税）</th>`).join("")}<th class="l">差异及待核对</th></tr>`;
+    const rows = pb.catalog.items.map((cat) => {
+      const per = led.rows[cat.id] || {};
+      const cells = sups.map((sup) => {
+        const lines = per[sup] || [];
+        const p0 = lines[0];
+        if (!p0) return `<td class="amount num st-missing">未报</td>`;
+        let cls = "amount num", body, note = "";
+        const badges = [];
+        if (p0.status !== "已计算") {
+          cls += " st-missing"; body = "未报";
+        } else if (p0.hs === null) {
+          cls += " st-pending"; body = "税率未给";
+          if (p0.ws != null) note = `<span class="v-note">未税 ${fmt(p0.ws)}</span>`;
+        } else {
+          body = fmt(lines.reduce((a, c) => a + Number(c.hs || 0), 0));
+          if (lines.every((c) => c.ws != null)) {
+            note = `<span class="v-note">未税 ${fmt(lines.reduce((a, c) => a + Number(c.ws), 0))}</span>`;
+          }
+        }
+        lines.forEach((c) => c.flags.forEach((f) => { const b = flagBadge(f); if (b) badges.push(b); }));
+        if (lines.length > 1) badges.push({ t: `×${lines.length}行`, c: "info" });
+        const dot = badges.some((b) => b.dot) ? '<span class="dot"></span>' : "";
+        const bgs = [...new Map(badges.map((b) => [b.t, b])).values()].slice(0, 3)
+          .map((b) => `<span class="bdg ${b.c}">${b.t}</span>`).join("");
+        return `<td class="${cls}" data-src="${cat.id}|${sup}" title="${esc(p0.basis || p0.flags.join("；") || p0.note)}">${body}${bgs}${dot}${note}</td>`;
+      }).join("");
+      const diffTxt = sups.map((sup) => {
+        const fs = (per[sup] || []).flatMap((c) => c.flags).filter((f) => !EXCLUDE_DIFF.some((k) => f.includes(k)));
+        return fs.length ? `${sup}：${fs.map(esc).join("；")}` : null;
+      }).filter(Boolean).join("；") || "—";
+      return `<tr><td class="l lock lock1">${cat.id}</td><td class="l lock lock2">${esc(cat.name)}</td>
+        <td class="l lock lock3">${esc(cat.unit)}</td>
+        <td class="l lock lock4 num">${esc(cat.qty)}</td>${cells}<td class="diffcell">${diffTxt}</td></tr>`;
+    }).join("");
+    const totFlags = sups.flatMap((s) => ((led.totals[s] || {}).flags || []).map((f) => `${s}：${f}`)).join("；") || "—";
+    const totalRow = `<tr class="total"><td class="l lock lock1">合计</td><td class="l lock lock2">按明细计算</td><td class="l lock lock3"></td><td class="l lock lock4"></td>
+      ${sups.map((s) => {
+        const t = led.totals[s] || {};
+        const main = t.hs != null ? fmt(t.hs) : "—";
+        const sub = t.hs == null && t.ws != null ? `未税 ${fmt(t.ws)} · 含税不可折算（税率未声明）` : (t.ws != null ? `未税 ${fmt(t.ws)}` : "");
+        return `<td class="amount num">${main}<span class="v-note">${esc(sub)}</span></td>`;
+      }).join("")}<td class="diffcell">${esc(totFlags)}</td></tr>`;
+    const statedRow = `<tr><td class="l lock lock1">列示合计</td><td class="l lock lock2">供应商原报，未核实</td><td class="l lock lock3"></td><td class="l lock lock4"></td>
+      ${sups.map((s) => `<td class="num">${led.totals[s] && led.totals[s].stated != null ? fmt(led.totals[s].stated) : "—"}</td>`).join("")}
+      <td class="diffcell">收集箱识别归集 · 金额计算零LLM、全 Decimal；异常仅提示不改写，价格合理性与选商由评审人员判断。</td></tr>`;
+    $("#ledger").innerHTML = `<thead>${head}</thead><tbody>${rows}${totalRow}${statedRow}</tbody>`;
+  }
   function renderLedger() {
+    if (state.cur) return renderProjectLedger();
+    $("#ctxVersion").textContent = STAGE_SHORT[state.stage];
+    $("#ctxVersion").className = "badge st-clarify";
+    $("#legendBar").classList.remove("hidden");
+    $("#ledgerEmpty").classList.add("hidden");
+    $("#ledgerWrap").classList.remove("hidden");
     const led = curLedger();
     const qm = qtyMap(state.stage);
     const head = `<tr><th class="l lock lock1">清单编号</th><th class="l lock lock2">名称</th><th class="l lock lock3">单位</th>
@@ -295,6 +434,44 @@
       </div></div></div>`;
     showModal("mSrc");
   }
+  /* 新项目来源回查：金额 → 识别记录 15 字段表（对应行高亮）→ 原件出处 */
+  function openProjectSrc(key) {
+    const [itemId, sup] = key.split("|");
+    const pb = state.proj;
+    if (!pb || !pb.ledger) return;
+    const lines = (pb.ledger.rows[itemId] || {})[sup] || [];
+    const p0 = lines[0];
+    const cat = pb.catalog.items.find((c) => c.id === itemId);
+    const recs = (pb.records[sup] && pb.records[sup].records) || [];
+    const srcParts = p0 ? String(p0.source || "").split(" · ") : [];
+    const srcFile = srcParts[0] || "", srcLoc = srcParts.slice(1).join(" · ");
+    const recRows = recs.filter((r) => r["行类型"] !== "说明");
+    const preview = recRows.length ? `<div class="src-table"><table class="simple"><thead><tr><th>行类型</th><th>原始编码</th><th>原始分项名称</th><th>单位</th><th class="r">数量</th><th class="r">单价</th><th>口径</th><th>税率</th><th class="r">原报金额</th><th>出处-定位</th></tr></thead><tbody>
+        ${recRows.map((r) => {
+          const hit = srcFile && r["出处-文件"] === srcFile && r["出处-定位"] === srcLoc;
+          return `<tr style="${hit ? "background:rgba(0,72,138,.10);box-shadow:inset 3px 0 0 var(--orbis-blue)" : ""}">
+            <td>${esc(r["行类型"])}</td><td>${esc(r["原始编码"])}</td><td>${esc(r["原始分项名称"])}</td><td>${esc(r["单位"])}</td>
+            <td class="r">${esc(r["数量"])}</td><td class="r">${esc(r["单价"])}</td><td>${esc(r["单价口径"])}</td><td>${esc(r["税率"])}</td>
+            <td class="r">${esc(r["原报金额"])}</td><td>${esc(r["出处-定位"])}</td></tr>`;
+        }).join("")}
+      </tbody></table></div>
+      <div style="font-size:11.5px;color:var(--ink-4);margin-top:6px">read-file 识别记录（15 字段缓存）· ${esc(srcFile)}${srcLoc ? " · " + esc(srcLoc) : ""}</div>`
+      : `<p style="color:var(--ink-4);font-size:13px">该供应商暂无识别记录缓存。</p>`;
+    $("#mSrcBody").innerHTML = `
+      <div class="src-grid"><div>${preview}</div>
+      <div><div class="src-kv">
+        ${p0 ? `<div class="kv"><span class="k">清单项</span><span>${itemId} ${esc(cat ? cat.name : "")}（${esc(cat ? cat.unit : "")} · 清单量 ${esc(cat ? cat.qty : "")}）</span></div>
+        <div class="kv"><span class="k">供应商</span><span>${esc(sup)} · ${esc(p0.source || "—")}</span></div>
+        <div class="kv"><span class="k">行状态</span><span>${esc(p0.status)} · 税率${esc(p0.tax_state)} · 单位${esc(p0.unit_state)}${lines.length > 1 ? ` · ×${lines.length}行` : ""}</span></div>
+        <div class="kv"><span class="k">数量</span><span class="num">统一 ${esc(p0.qty ?? "—")}${p0.orig_qty != null && Number(p0.orig_qty) !== Number(p0.qty) ? `（原报 ${esc(p0.orig_qty)}）` : ""}</span></div>
+        <div class="kv"><span class="k">列示金额</span><span class="num">${p0.stated_amount != null ? fmt(p0.stated_amount) : "—"}（原报，未核实）</span></div>
+        <div class="kv"><span class="k">计算金额</span><span class="num">原始口径 ${p0.orig_amount != null ? fmt(p0.orig_amount) : "—"} · 未税 ${p0.ws != null ? fmt(p0.ws) : "不可折算"} · 税额 ${p0.tax != null ? fmt(p0.tax) : "—"} · 含税 ${p0.hs != null ? fmt(p0.hs) : "不可折算"}</span></div>
+        <div class="kv"><span class="k">折算依据</span><span>${esc(p0.basis || "—")}</span></div>
+        ${(p0.flags.length || p0.note) ? `<div class="kv"><span class="k">线索</span><span>${esc(p0.flags.join("；"))}${p0.note ? (p0.flags.length ? "；" : "") + esc(p0.note) : ""}</span></div>` : ""}
+        <div class="kv"><span class="k">红线提示</span><span style="color:var(--ink-4)">异常仅提示不改写原值；区间不构成定价或中标判断；系统不推荐中标。</span></div>` : `<p>该格暂无引擎计算行。</p>`}
+      </div></div></div>`;
+    showModal("mSrc");
+  }
 
   /* ---------------- 页签③ 事件与澄清 ---------------- */
   function payloadDesc(a) {
@@ -306,6 +483,23 @@
     return "—";
   }
   function renderEvents() {
+    if (state.cur) {
+      $("#anFilter").innerHTML = "";
+      $("#anList").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无异常事项：报价归集并生成台账后，系统核对发现的异常会按类列在这里。</p>`;
+      $("#evtEntries").innerHTML = `
+        <button class="btn primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
+        <button class="btn" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "第三方模型接口：从纪要提取事件候选（M4 接口位）" : "当前离线：第三方模型接口不可用，请使用人工登记路径"}">⚡ AI 提取事件${state.online ? "" : "（离线不可用）"}</button>
+        <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
+      $("#evtCards").innerHTML = state.manual.length ? state.manual.map((m) => `
+        <div class="evt-card"><div class="ehead"><b>${esc(m.id)} · 人工登记事件</b><span class="bdg">待确认</span>
+          <span class="spacer" style="flex:1"></span><span class="esub">${esc(m.time)} · ${esc(m.op)}</span></div>
+        <div class="evt-items"><div class="evt-item"><span class="etype">${esc(m.type)}</span>
+          <span class="target">${esc(m.target)}</span><span class="delta">${esc(m.detail)}　<span class="basis-link">依据：${esc(m.basis)}</span></span></div></div>
+        <div class="eops"><span style="font-size:12px;color:var(--ink-4)">演示环境：已登记并留痕，未触发引擎重算。</span></div>
+      </div>`).join("")
+        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无事件：澄清纪要、变更通知等上下文文件登记为事件并确认应用后，在此形成时间轴并驱动台账新版本。</p>`;
+      return;
+    }
     const issues = state.issues[state.stage] || [];
     const cats = [...new Set(issues.map((i) => i.cat))];
     $("#anFilter").innerHTML = ["全部", ...cats].map((f) =>
@@ -425,6 +619,13 @@
     return out;
   }
   function renderVersions() {
+    if (state.cur) {
+      $("#vtimeline").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无版本：事件确认应用后生成新版本（V1 澄清后 → V2 变更后），历史版本永不覆盖。</p>`;
+      $("#sumBar").innerHTML = "";
+      $("#diffWrap").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:12px">生成台账版本后，可在此对比任意两个版本的逐项差异。</p>`;
+      $("#opLog").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:12px">暂无操作记录。</p>`;
+      return;
+    }
     $("#vtimeline").innerHTML = Object.keys(STAGE_SHORT).map((k) => {
       const reached = state.unlocked[k];
       const meta = { v1_raw: "2026-09-18 · 原件归档 + 引擎计算", v1_clarified: "2026-09-19 · CLARIFY-01 应用", v2: "2026-09-20 · CHANGE-01 应用" }[k];
@@ -460,6 +661,16 @@
 
   /* ---------------- 页签⑤ 导出交付 ---------------- */
   function renderExport() {
+    if (state.cur) {
+      $("#expChk").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无可导出的台账：报价归集、澄清确认并生成台账版本后，此处进行导出自检并产出五表 xlsx（企业模板副本填写，输出目录与原件物理分离）。</p>`;
+      $("#btnExport").disabled = true;
+      $("#btnDeliver").disabled = true;
+      $("#stageDl").innerHTML = "";
+      $("#expHistory").innerHTML = `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。</p>`;
+      return;
+    }
+    $("#btnExport").disabled = false;
+    $("#btnDeliver").disabled = false;
     const checks = state.boot.checks;
     const okN = checks.filter((c) => c.ok).length;
     const issues = state.issues[state.stage] || [];
@@ -506,11 +717,74 @@
     toast("事件已登记并进入待确认队列（示例环境不触发引擎重算）。依据已随事件留痕。");
   }
 
+  /* ---------------- 新建比选项目 ---------------- */
+  async function loadProjects() {
+    const j = await getJSON("/api/projects");
+    state.projects = j.projects || [];
+    state.nextId = j.next_id || "";
+  }
+  function openNewProjModal() {
+    $("#mNewBody").innerHTML = `
+      <div class="form-grid">
+        <div class="fld"><label>项目编号（自动生成）</label>
+          <input value="${esc(state.nextId)}" disabled style="background:#f6f7f9;color:var(--ink-3)"></div>
+        <div class="fld"><label>项目状态（创建后随流程流转）</label>
+          <input value="配置中" disabled style="background:#f6f7f9;color:var(--ink-3)"></div>
+        <div class="fld"><label>项目名称 <i>*</i></label>
+          <input id="npName" maxlength="60" placeholder="如：园区现场测量与检测"></div>
+        <div class="fld"><label>项目负责人 <i>*</i></label>
+          <input id="npOwner" maxlength="30" placeholder="如：商务人员A"></div>
+        <div class="fld full" style="font-size:12px;color:var(--ink-4);line-height:1.8">统一清单、计算规则版本与资格要求按组织级默认挂载（界面设计文档 §5.0）；供应商名单与报价在工作区收集箱逐步归集。</div>
+      </div>`;
+    showModal("mNew");
+    $("#npName").focus();
+  }
+  async function submitNewProject() {
+    const name = $("#npName").value.trim(), owner = $("#npOwner").value.trim();
+    if (!name || !owner) { toast("创建失败：项目名称与项目负责人均为必填。"); return; }
+    try {
+      const r = await fetch("/api/projects", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, owner }) });
+      const j = await r.json();
+      if (!r.ok) { toast(`创建失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      hideModals();
+      await loadProjects();
+      renderHome();
+      toast(`已创建 <b>${esc(j.id)}</b> · ${esc(j.name)}（负责人 ${esc(j.owner)}）——点击项目卡进入工作区。`);
+    } catch (e) {
+      toast(`创建失败：${esc(e.message)}——请确认已运行 python server.py`);
+    }
+  }
+  function openProject(p) {
+    state.cur = p;
+    state.proj = null;
+    state.view = "project";
+    switchView();
+    loadProjectBoard();
+  }
+  /* 项目工作台全量数据（清单 + 识别登记 + 引擎台账 + 匹配报告），上传识别后重取 */
+  async function loadProjectBoard() {
+    if (!state.cur) return;
+    try {
+      const pb = await getJSON(`/api/projects/${encodeURIComponent(state.cur.id)}/board`);
+      state.proj = pb;
+      state.cur = pb.project;
+      const i = state.projects.findIndex((x) => x.id === pb.project.id);
+      if (i >= 0) state.projects[i] = pb.project;
+      renderAll();
+    } catch (e) {
+      toast(`项目数据加载失败：${esc(e.message)}`);
+    }
+  }
+
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport");
+    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk");
     if (!t) return;
     const ds = t.dataset;
+    if (t.id === "btnNewProj") return openNewProjModal();
+    if (t.id === "mNewOk") return submitNewProject();
     if (t.id === "btnManual") return registerModal();
     if (t.id === "btnAI") {
       if (!state.online) return;
@@ -524,9 +798,10 @@
       return toast("M2 生成器已写出 5-sheet 台账 xlsx（企业模板副本填写），开始下载。");
     }
     if (ds.open) { state.view = "project"; switchView(); return; }
+    if (ds.proj) { const p = state.projects.find((x) => x.id === ds.proj); if (p) openProject(p); return; }
     if (ds.ver) { state.stage = ds.ver; renderAll(); return; }
     if (ds.tab) { state.tab = +ds.tab; renderTabs(); return; }
-    if (ds.src) return openSrc(ds.src);
+    if (ds.src) return state.cur ? openProjectSrc(ds.src) : openSrc(ds.src);
     if (ds.qok) { const q = state.queue.find((x) => x.id === ds.qok); q.status = "done"; renderInbox(); renderCtx(); return toast(`字段已确认入账：${q.supplier} ${q.item}（确认动作留痕，实际环境写入操作记录）`); }
     if (ds.qwait) { const q = state.queue.find((x) => x.id === ds.qwait); q.status = "done"; renderInbox(); renderCtx(); return toast(`已登记待澄清：${q.supplier} ${q.item}——未知值不入账，等待书面澄清。`); }
     if (ds.anf) { state.anFilter = ds.anf; renderEvents(); return; }
@@ -594,6 +869,7 @@
     const [r, c, v, ir, ic, iv] = await Promise.all([
       getJSON("/api/ledger/v1_raw"), getJSON("/api/ledger/v1_clarified"), getJSON("/api/ledger/v2"),
       getJSON("/api/issues/v1_raw"), getJSON("/api/issues/v1_clarified"), getJSON("/api/issues/v2"),
+      loadProjects(),
     ]);
     state.ledgers = { v1_raw: r, v1_clarified: c, v2: v };
     state.issues = { v1_raw: ir, v1_clarified: ic, v2: iv };
@@ -603,7 +879,7 @@
       SUPS = state.boot.suppliers_order;   // 供应商清单由数据决定（与引擎/导出层一致）
     }
 
-    $("#backHome").addEventListener("click", () => { state.view = "home"; switchView(); });
+    $("#backHome").addEventListener("click", () => { state.view = "home"; state.cur = null; state.proj = null; switchView(); });
     ["#diffA", "#diffB"].forEach((sel) => {
       $(sel).innerHTML = Object.keys(STAGE_SHORT).map((k) => `<option value="${k}">${STAGE_SHORT[k]}</option>`).join("");
     });

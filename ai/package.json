@@ -1,0 +1,14 @@
+{
+  "name": "fde-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 能力子服务：基于 Pi agent SDK（@earendil-works/pi-agent-core + pi-ai）为分包比选工作台提供 AI agent 能力",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "^1.4.0",
+    "@earendil-works/pi-ai": "^1.4.0"
+  }
+}

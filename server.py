@@ -9,6 +9,11 @@
   GET /api/ledger/{stage}  三阶段台账（v1_raw / v1_clarified / v2），ledger_to_dict 同构
   GET /api/issues/{stage}  需补充事项（问题清单源自 V1 原始台账，闭环按当前版本求值）
   GET /api/export/{stage}  生成并下载该阶段 5-sheet 比选台账 xlsx（企业模板副本填写）
+  GET /api/projects        运行时新建项目列表 + 下一个可用项目编号
+  POST /api/projects       新建比选项目（name=项目名称, owner=项目负责人）
+  GET /api/projects/{id}/board   项目工作台全量数据：清单+识别登记+引擎台账+匹配报告
+  POST /api/projects/{id}/attach 把已缓存的识别结果登记进项目（rec_id）
+  （POST /api/recognize 支持 &project={id}：上传识别成功即登记进项目）
 
 引擎金额计算零 LLM、全 Decimal（M1 设计红线）；服务仅用 Python 标准库 +
 openpyxl（M2 写 xlsx），可离线内网运行。
@@ -48,6 +53,11 @@ RECOG_DIR = OUT / "recognition"           # 识别结果缓存（JSON，可重�
 # 供应商清单完全由数据决定（5c5b8f5 动态供应商化），不写死
 QUOTE_DATA = json.loads((BACKEND / "data" / "gc017_quotes.json").read_text("utf-8"))
 SUPS = list(QUOTE_DATA["suppliers"].keys())
+
+# ---------------------------------------------------------------- 新建比选项目
+# 运行时项目存储与「识别 → 匹配 → 引擎计算」管线在 project_pipeline.py：
+# 本文件只做路由；GC-017 为内置案例编号，新建项目从 GC-018 续号。
+import project_pipeline as pp  # noqa: E402  运行时项目存储 + 识别记录装配引擎台账
 
 STAGES = {
     "v1_raw":       "V1 原始报价（澄清前）",
@@ -321,6 +331,17 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._file(export_xlsx(stage))
             if path == "/api/recognition":
                 return self._json({"engines": recognition_engines(), "results": recognition_list()})
+            if path == "/api/projects":
+                projects = pp.load_projects()
+                return self._json({"projects": projects, "next_id": pp.next_project_id(projects)})
+            if path.startswith("/api/projects/"):
+                pid, _, sub = path[len("/api/projects/"):].partition("/")
+                if sub == "board":
+                    proj = pp.find_project(pp.load_projects(), pid)
+                    if proj is None:
+                        return self._json({"error": f"项目 {pid} 不存在"}, 404)
+                    return self._json(pp.build_board(proj))
+                return self._json({"error": "unknown api"}, 404)
             if path.startswith("/api/"):
                 return self._json({"error": "unknown api"}, 404)
             if path in ("/", "/index.html") :
@@ -337,10 +358,49 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """POST /api/recognize?filename=<原始文件名>　body = 文件原始字节。
+        POST /api/projects　body = {"name": 项目名称, "owner": 项目负责人} JSON。
 
-        不用 multipart：本地工具直传字节流最简，前端 fetch(file) 即可。"""
+        recognize 不用 multipart：本地工具直传字节流最简，前端 fetch(file) 即可。"""
         path = unquote(urlparse(self.path).path)
         try:
+            if path == "/api/projects":
+                length = int(self.headers.get("Content-Length") or 0)
+                if length <= 0 or length > 64 * 1024:
+                    return self._json({"error": f"请求体大小不合法（{length} 字节，上限 64KB）"}, 400)
+                try:
+                    body = json.loads(self.rfile.read(length).decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    return self._json({"error": "请求体不是合法的 UTF-8 JSON"}, 400)
+                if not isinstance(body, dict):
+                    return self._json({"error": "请求体应为 JSON 对象"}, 400)
+                name, owner = body.get("name"), body.get("owner")
+                if not isinstance(name, str) or not isinstance(owner, str):
+                    return self._json({"error": "项目名称与项目负责人须为字符串"}, 400)
+                name, owner = name.strip(), owner.strip()
+                if not name or not owner:
+                    return self._json({"error": "项目名称与项目负责人均为必填"}, 400)
+                if len(name) > 60 or len(owner) > 30:
+                    return self._json({"error": "项目名称不超过 60 字、项目负责人不超过 30 字"}, 400)
+                return self._json(pp.create_project(name, owner), 201)
+            if path.startswith("/api/projects/"):
+                pid, _, sub = path[len("/api/projects/"):].partition("/")
+                if sub == "attach":
+                    length = int(self.headers.get("Content-Length") or 0)
+                    try:
+                        body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        return self._json({"error": "请求体不是合法的 UTF-8 JSON"}, 400)
+                    rec_id = str(body.get("rec_id") or "")
+                    if not rec_id:
+                        return self._json({"error": "rec_id 必填（收集箱识别结果 id）"}, 400)
+                    try:
+                        proj = pp.attach_recognition(pid, rec_id)
+                    except KeyError:
+                        return self._json({"error": f"项目 {pid} 不存在"}, 404)
+                    except ValueError as exc:
+                        return self._json({"error": str(exc)}, 404)
+                    return self._json(proj)
+                return self._json({"error": "unknown api"}, 404)
             if path != "/api/recognize":
                 return self._json({"error": "unknown api"}, 404)
             qs = parse_qs(urlparse(self.path).query)
@@ -350,6 +410,13 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({"error": f"文件大小不合法（{length} 字节，上限 50MB）"}, 400)
             data = self.rfile.read(length)
             result = recognize_upload(filename, data)
+            pid = (qs.get("project") or [""])[0]
+            if pid:
+                try:
+                    pp.attach_recognition(pid, result.get("id", ""))
+                    result["project"] = pid
+                except (KeyError, ValueError) as exc:
+                    return self._json({"error": f"识别成功但登记项目失败：{exc}"}, 404)
             return self._json(result)
         except BrokenPipeError:
             pass

@@ -30,7 +30,7 @@
     <h1>比选项目</h1>
     <span class="sub">按项目组织一轮比选的全部文件、事件与台账版本</span>
     <span style="flex:1"></span>
-    <button class="btn primary">＋ 新建比选项目</button>
+    <button class="btn primary" id="btnNewProj">＋ 新建比选项目</button>
   </div>
   <div class="proj-grid" id="projGrid"></div>
 </main>
@@ -41,11 +41,11 @@
   <!-- 项目上下文条 -->
   <div class="card ctxbar">
     <button class="back" id="backHome">← 返回项目列表</button>
-    <h2>GC-017 · 园区测量检测分包</h2>
-    <span class="badge st-clarify">待澄清</span>
+    <h2 id="ctxTitle">GC-017 · 园区测量检测分包</h2>
+    <span class="badge st-clarify" id="ctxBadge">待澄清</span>
     <div class="ctx-meta" id="ctxMeta"></div>
     <div class="grow"></div>
-    <span style="font-size:12px;color:var(--ink-4)">台账版本</span>
+    <span style="font-size:12px;color:var(--ink-4)" id="verLabel">台账版本</span>
     <div class="ver-switch" id="verSwitch"></div>
   </div>
 
@@ -81,7 +81,7 @@
     <div class="card panel">
       <h3><span class="petrol-line"></span>统一对比台账 <span class="badge st-clarify" id="ctxVersion">V0</span>
         <span style="flex:1"></span><span style="font-size:12px;font-weight:400;color:var(--ink-4)">点击任意金额 → 回查原件出处 · 系统不推荐中标</span></h3>
-      <div class="legend">
+      <div class="legend" id="legendBar">
         <span><i class="lg-restated"></i>澄清修正</span>
         <span><i class="lg-recomp"></i>变更重算</span>
         <span><i class="lg-pending"></i>待确认（不入合计）</span>
@@ -89,7 +89,11 @@
         <span><i class="lg-nocomp"></i>口径不可比</span>
         <span><i class="lg-dot"></i>异常线索（原值保留）</span>
       </div>
-      <div class="tbl-wrap"><table class="ledger" id="ledger"></table></div>
+      <div id="ledgerEmpty" class="hidden" style="padding:28px 10px;text-align:center;color:var(--ink-4);font-size:13px;line-height:2">
+        尚无统一台账：先到①收集箱上传供应商报价原件（Excel / PDF / 扫描件 / 截图均可），<br>
+        识别记录自动匹配统一清单并经引擎计算后，此处生成 V1 原始台账——异常只提示，不改写原值。
+      </div>
+      <div class="tbl-wrap" id="ledgerWrap"><table class="ledger" id="ledger"></table></div>
     </div>
   </section>
 
@@ -138,7 +142,7 @@
         <div id="expChk"></div>
         <div style="margin-top:14px;display:flex;gap:10px">
           <button class="btn primary" id="btnExport">导出五表台账 + 异常报告</button>
-          <button class="btn">标记为已交付评审</button>
+          <button class="btn" id="btnDeliver">标记为已交付评审</button>
         </div>
         <div class="split-note">🔒 输出与原件物理分离：原件区 data/raw 只读；本工作台输出至独立输出目录。补录、修改与应用事件全部自动写入「操作记录」表。</div>
       </div>
@@ -190,6 +194,15 @@
     <div class="mhead"><b>异常证据 · 定位原文</b><button class="mclose">✕</button></div>
     <div class="mbody" id="mEvBody"></div>
     <div class="mfoot"><button class="btn mclose">关闭</button></div>
+  </div>
+</div>
+
+<!-- ============ 弹层：新建比选项目 ============ -->
+<div class="overlay" id="mNew">
+  <div class="modal">
+    <div class="mhead"><b>新建比选项目</b><button class="mclose">✕</button></div>
+    <div class="mbody" id="mNewBody"></div>
+    <div class="mfoot"><button class="btn mclose">取消</button><button class="btn primary" id="mNewOk">创建项目</button></div>
   </div>
 </div>
 
