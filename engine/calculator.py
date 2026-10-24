@@ -9,7 +9,7 @@
 恒从原始口径方向起算，只折算一次，防止往返折算的舍入漂移。
 """
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional
 
 from .models import Direction, TaxProfile
@@ -104,6 +104,29 @@ def compute_line(line, tax: TaxProfile, cat: dict, unit_state: str,
         basis += f"；数量按{qty_basis}调整为{qty}（单价税率沿用）"
     if unit_state == "不一致待澄清":
         flags.append(f"单位口径待澄清：报「{line.unit}」≠清单「{cat['unit']}」，无书面说明不得换算（规则第四条）")
+
+    # 参考区间校验（规则第五条）：同范围同单位的未税单价层比较，只提示、不自动改写、不参与定价。
+    # 单位不一致（未书面确认）不可比；整项口径经单位确认产生单价后恢复可比。
+    rng = cat.get("range")
+    if rng and line.unit == cat.get("unit"):
+        lo, hi = D(rng[0]), D(rng[1])
+        p = None
+        if line.unit_price is not None:
+            if line.direction is Direction.TAX_EXCL:
+                p = line.unit_price                      # 原报即未税，税率未声明也可比
+            elif rate is not None:
+                p = r2(line.unit_price / (Decimal(1) + rate))
+        elif ws is not None and qty:
+            p = r2(ws / qty)                             # 整项口径：未税金额均摊到单位
+        if p is not None:
+            if p > hi:
+                ratio = (p / hi).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                flags.append(f"未税单价{p}{cat['unit']}超参考区间上限{hi}约{ratio}倍"
+                             f"（异常线索，仅提示不自动改写，规则第五条）")
+            elif p < lo:
+                pct = int((p / lo * 100).to_integral_value(rounding=ROUND_HALF_UP))
+                flags.append(f"未税单价{p}{cat['unit']}低于参考区间下限{lo}（约为下限的{pct}%，"
+                             f"异常低价线索：警惕漏项少测，仅提示）")
 
     return ComputedLine(
         supplier=line.supplier, item_id=line.item_id,

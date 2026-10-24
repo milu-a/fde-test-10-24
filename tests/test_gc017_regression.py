@@ -27,6 +27,21 @@ class GC017Regression(unittest.TestCase):
         return led.totals[sup]
 
     # ---------------- V1 原始（未澄清） ----------------
+    def test_v1_range_flags_exactly_one(self):
+        """全量 15×4 行里，参考区间异常有且只有乙 C08 一处（四家数字构造使然）。"""
+        for led in (self.v1, self.v1c, self.v2):
+            hits = [(c.supplier, c.item_id, f) for per in led.rows.values()
+                    for ls in per.values() for c in ls for f in c.flags if "参考区间" in f]
+            self.assertEqual(len(hits), 1, hits)
+            self.assertEqual(hits[0][0], "乙")
+            self.assertEqual(hits[0][1], "C08")
+            self.assertIn("约4.9倍", hits[0][2])
+
+    def test_v1_ding_c14_not_range_checked(self):
+        # 单位未确认前不比区间；确认均分后 771.68/1.06=728.00 落在 [560,840] 内，同样无旗标
+        self.assertFalse(any("参考区间" in f for f in self.v1.rows["C14"]["丁"][0].flags))
+        self.assertFalse(any("参考区间" in f for f in self.v1c.rows["C14"]["丁"][0].flags))
+
     def test_v1_jia_total(self):
         self.assertEqual(self.totals(self.v1, "甲")["hs"], D("40545.00"))
         self.assertEqual(self.totals(self.v1, "甲")["flags"], [])

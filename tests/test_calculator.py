@@ -110,5 +110,63 @@ class LumpSumTest(unittest.TestCase):
         self.assertTrue(any("单位口径待澄清" in f for f in c.flags))
 
 
+class RangeCheckTest(unittest.TestCase):
+    """参考区间校验（M5/规则第五条）：同单位、未税单价层，只提示不裁决。"""
+
+    CAT = {"id": "C08", "name": "低应变检测", "unit": "根", "qty": Decimal("60"),
+           "range": ["68", "102"]}
+
+    def _flags(self, **kw):
+        base = dict(supplier="乙", item_id="C08", name="低应变检测", unit="根",
+                    qty=Decimal("60"), unit_price=Decimal("500"),
+                    stated_amount=Decimal("30000"), direction=Direction.TAX_EXCL,
+                    source=SourceRef("x.pdf", "p1"))
+        base.update(kw)
+        return compute_line(QuoteLine(**base), tax_with_rate(), self.CAT, "一致").flags
+
+    def test_over_range(self):
+        fs = self._flags()
+        self.assertTrue(any("超参考区间上限102约4.9倍" in f for f in fs), fs)
+
+    def test_over_range_untaxed_direct_even_without_rate(self):
+        # 原报未税：税率未声明也能比（乙 C08 在 V1 原始阶段就要被抓出来）
+        t = TaxProfile("乙")   # 未声明
+        c = compute_line(QuoteLine(**self._base()), t, self.CAT, "一致")
+        self.assertTrue(any("超参考区间上限" in f for f in c.flags))
+
+    def _base(self):
+        return dict(supplier="乙", item_id="C08", name="低应变检测", unit="根",
+                    qty=Decimal("60"), unit_price=Decimal("500"),
+                    stated_amount=Decimal("30000"), direction=Direction.TAX_EXCL,
+                    source=SourceRef("x.pdf", "p1"))
+
+    def test_under_range_low_price_clue(self):
+        fs = self._flags(unit_price=Decimal("50"))
+        self.assertTrue(any("低于参考区间下限68" in f and "异常低价" in f for f in fs), fs)
+
+    def test_in_range_no_flag(self):
+        self.assertFalse(any("参考区间" in f for f in self._flags(unit_price=Decimal("90"))))
+
+    def test_tax_incl_normalized(self):
+        # 含税单价折未税后再比：212/1.06=200，对 [68,102] 上限约2.0倍
+        fs = self._flags(supplier="甲", unit_price=Decimal("212"),
+                         stated_amount=Decimal("12720"), direction=Direction.TAX_INCL)
+        self.assertTrue(any("未税单价200.00根超参考区间上限102约2.0倍" in f for f in fs), fs)
+
+    def test_unit_mismatch_not_comparable(self):
+        # 单位未确认（项≠台班）：不比区间
+        fs = self._flags(supplier="丁", unit="项", qty=Decimal("1"), unit_price=None,
+                         stated_amount=Decimal("3086.72"), direction=Direction.TAX_INCL)
+        self.assertFalse(any("参考区间" in f for f in fs), fs)
+
+    def test_tax_incl_without_rate_not_comparable(self):
+        t = TaxProfile("丙")   # 未声明
+        c = compute_line(QuoteLine(**{**self._base(), "supplier": "丙",
+                                      "unit_price": Decimal("212"),
+                                      "stated_amount": Decimal("12720"),
+                                      "direction": Direction.TAX_INCL}), t, self.CAT, "一致")
+        self.assertFalse(any("参考区间" in f for f in c.flags))
+
+
 if __name__ == "__main__":
     unittest.main()

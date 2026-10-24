@@ -101,28 +101,30 @@ def _closing_audit(led, sup, item, cat):
     return None
 
 
-def _need_items(led, qualifiers=None, closure_led=None):
-    """从旗标与行备注生成需补充事项（去重、带闭环状态）；资格缺件/疑点一并入表且保持开放。
+def _need_items(led, qualifiers=None, closure_led=None, invoice_status=None):
+    """从旗标生成需补充事项（去重、带闭环状态）；资格缺件/疑点与发票类型未说明一并入表且保持开放。
 
     led: 问题发现来源台账（传 V1 原始版使清单跨版本累计）
     closure_led: 闭环求值台账（当前版本；缺省同 led）
+    invoice_status: {供应商: {"declared": bool, "invoice_type": str|None}} 发票类型影响真实成本口径
     """
     closure_led = closure_led or led
     items, seen = [], set()
 
-    def add(sup, item, cat, evidence):
+    def add(sup, item, cat, evidence, closed=None, problem=None, material=None, basis=None):
         # 税率/合计类按供应商折叠（逐行旗标不重复立事项）
         row_item = "—" if cat in ("税率", "合计") else item
         key = (sup, row_item, cat)
         if key in seen:
             return
         seen.add(key)
-        a = _closing_audit(closure_led, sup, row_item, cat)
+        if closed is None:
+            a = _closing_audit(closure_led, sup, row_item, cat)
+            closed, basis = a is not None, (f"CLARIFY-01：{a['原值']} → {a['新值']}" if a else evidence)
         items.append({
             "supplier": sup, "item": row_item, "cat": cat,
-            "problem": PROBLEMS[cat][0], "material": PROBLEMS[cat][1],
-            "closed": a is not None,
-            "basis": (f"CLARIFY-01：{a['原值']} → {a['新值']}" if a else evidence),
+            "problem": problem or PROBLEMS[cat][0], "material": material or PROBLEMS[cat][1],
+            "closed": closed, "basis": basis,
         })
 
     for item, per in led.rows.items():
@@ -136,13 +138,19 @@ def _need_items(led, qualifiers=None, closure_led=None):
                         continue
                     if cat:
                         add(sup, item, cat, c.source)
-                if "参考区间" in (c.note or ""):
-                    add(sup, item, "区间", c.source)
     for sup in led.totals:
         for f in led.totals[sup]["flags"]:
             cat = _cat_of(f)
             if cat:
                 add(sup, "—", cat, "原报价文件列示合计")
+    for sup, st in (invoice_status or {}).items():
+        if st.get("declared") and not st.get("invoice_type"):
+            add(sup, "税率", "发票",
+                "税率已声明；发票类型未说明",
+                closed=False,
+                problem="发票类型未说明（专票可抵扣则比价看未税，普票含税即真实成本）",
+                material="发票类型说明（专票/普票）",
+                basis="税率已声明；发票类型未说明，双口径并排供商务判断")
     for q in (qualifiers or []):
         if q.get("submitted") != "已提交" or "疑点" in q.get("review", "") \
                 or "缺件" in q.get("review", ""):
@@ -246,7 +254,7 @@ def _style(wb, sups):
 
 def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
                  qty_map=None, prev_totals=None, version_note="", template_path=None,
-                 issue_source=None):
+                 issue_source=None, invoice_status=None):
     """把一个版本的 Ledger 写成 5-sheet 台账 xlsx。
 
     rate_map: {供应商: "6%"/"未声明"} 原税率列展示
@@ -254,6 +262,7 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
     prev_totals: 上一版本合计（V2 写"较V1金额差异"行，落实变更通知的"保留基线与金额差异"）
     issue_source: 需补充事项的来源台账（传 V1 原始版，使问题清单跨版本累计、
                   处理状态再对当前版本求值；缺省用 led 自身）
+    invoice_status: {供应商: {"declared","invoice_type"}} 发票类型未说明时立事项（M5）
     """
     qty_map = qty_map or {}
     sups = list(led.totals.keys())
@@ -315,7 +324,8 @@ def write_ledger(led, catalog, out_path, rate_map, qualifiers=None,
     # ---------------- 需补充事项 ----------------
     ws = wb["需补充事项"]
     r = 2
-    for i, it in enumerate(_need_items(issue_source or led, qualifiers, closure_led=led), 1):
+    for i, it in enumerate(_need_items(issue_source or led, qualifiers,
+                                       closure_led=led, invoice_status=invoice_status), 1):
         _put(ws, r, 1, f"QB-{i:03d}")
         _put(ws, r, 2, it["supplier"])
         _put(ws, r, 3, it["item"])

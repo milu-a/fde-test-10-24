@@ -48,18 +48,20 @@ class ReportTest(unittest.TestCase):
                          qty_overrides=ch["qty_overrides"], qty_basis=ch["id"],
                          qty_at=ch["at"], qty_operator=ch["operator"])
         catalog_qty = {i: c["qty"] for i, c in ns.catalog.items()}
+        invoice_all = {s: {"declared": True, "invoice_type": None} for s in SUPS4}
         cls.paths = {}
         for name, led, rate, qmap, prev in (
             ("raw", cls.v1, RATE_RAW, catalog_qty, None),
             ("v1c", cls.v1c, RATE_OK, catalog_qty, None),
             ("v2", cls.v2, RATE_OK, {**catalog_qty, "C08": 72},
-             {s: cls.v1c.totals[s]["hs"] for s in ("甲", "乙", "丙", "丁")}),
+             {s: cls.v1c.totals[s]["hs"] for s in SUPS4}),
         ):
             cls.paths[name] = write_ledger(
                 led, ns.catalog, Path(cls.tmp.name) / f"{name}.xlsx", rate,
                 qualifiers=QUALIFIERS, qty_map=qmap, prev_totals=prev,
                 version_note=f"台账版本 {name}",
-                issue_source=cls.v1)  # 问题清单自 V1 原始累计，状态对当前版本求值
+                issue_source=cls.v1,  # 问题清单自 V1 原始累计，状态对当前版本求值
+                invoice_status=invoice_all)
         cls.wb_raw = load_workbook(cls.paths["raw"])
         cls.wb_v2 = load_workbook(cls.paths["v2"])
 
@@ -148,6 +150,9 @@ class ReportTest(unittest.TestCase):
         self.assertIn(("丙", "C04", "已澄清关闭"), v2)
         self.assertIn(("丁", "C14", "已澄清关闭"), v2)
         self.assertIn(("乙", "C08", "待补充"), v2)
+        # M5：四家税率均已声明但发票类型未说明 → 各立一项且不自动关闭
+        for sup in ("甲", "乙", "丙", "丁"):
+            self.assertIn((sup, "税率", "待补充"), v2)
         opens = [k for k in v2 if k[2] == "待补充"]
         self.assertIn(("乙", "资质", "待补充"), opens)
         self.assertIn(("丁", "资质", "待补充"), opens)

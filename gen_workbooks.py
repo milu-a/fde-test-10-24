@@ -33,6 +33,17 @@ def _rate_map(ns, clarified):
     return out
 
 
+def _invoice_status(ns):
+    """M5：发票类型影响真实成本口径——申报过税率（含澄清中声明）但未说明专票/普票的供应商立事项。"""
+    declared_in_clarify = {a.supplier for a in ns.events["clarify"] if a.op == "DECLARE_TAX"}
+    out = {}
+    for s, sj in ns.quotes_raw["suppliers"].items():
+        tj = sj.get("tax", {})
+        out[s] = {"declared": tj.get("state") in ("已声明", "已澄清") or s in declared_in_clarify,
+                  "invoice_type": tj.get("invoice_type")}
+    return out
+
+
 def main():
     ns = load_all()
     b = ns.builder
@@ -71,7 +82,7 @@ def main():
         p = write_ledger(led, catalog, OUT / fname, rate_map,
                          qualifiers=qualifiers, qty_map=qmap,
                          prev_totals=prev, version_note=note, template_path=tpl,
-                         issue_source=v1)
+                         issue_source=v1, invoice_status=_invoice_status(ns))
         from openpyxl import load_workbook
         wb = load_workbook(p)
         counts = {s: max(wb[s].max_row - 1, 0) for s in wb.sheetnames}

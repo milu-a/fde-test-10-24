@@ -50,7 +50,7 @@
         {"item": "C06", "name": "地下水位观测", "unit": "孔", "qty": "6", "unit_price": "147.00", "stated_amount": "882.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第6行"}},
         {"item": "C07", "name": "地表沉降监测", "unit": "点", "qty": "20", "unit_price": "78.40", "stated_amount": "1568.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第7行"}, "note": "与第8行完全相同（重复）"},
         {"item": "C07", "name": "地表沉降监测", "unit": "点", "qty": "20", "unit_price": "78.40", "stated_amount": "1568.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第8行"}, "note": "与第7行完全相同（重复）"},
-        {"item": "C08", "name": "低应变检测", "unit": "根", "qty": "60", "unit_price": "500.00", "stated_amount": "30000.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第9行"}, "note": "未税单价500元/根，超参考区间上限102约4.9倍（M5异常线索，不自动改写）"},
+        {"item": "C08", "name": "低应变检测", "unit": "根", "qty": "60", "unit_price": "500.00", "stated_amount": "30000.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第9行"}, "note": "CLARIFY-01：乙明确500.00元/根仍为当前报价、不修改，原因待商务评审；CHANGE-01后线索依然保留"},
         {"item": "C09", "name": "声波透射检测", "unit": "根", "qty": "12", "unit_price": null, "stated_amount": null, "source": {"file": "乙方报价.pdf", "locator": "第1页第10行"}, "note": "单价未填（漏报）"},
         {"item": "C10", "name": "混凝土回弹检测", "unit": "构件", "qty": "30", "unit_price": "117.60", "stated_amount": "3528.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第11行"}},
         {"item": "C12", "name": "土工密度试验", "unit": "组", "qty": "10", "unit_price": "93.10", "stated_amount": "931.00", "source": {"file": "乙方报价.pdf", "locator": "第1页第12行"}},
