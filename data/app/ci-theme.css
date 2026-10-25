@@ -1,0 +1,84 @@
+/* ORBIS CI 2026 — adapted from orbis-design-system/system/tokens.default.json.
+   Application theme over the vendored component CSS; no vendor files modified.
+   Only approved CI colors and their transparency are used. */
+:root {
+  --ci-blue: #00488a;
+  --ci-night: #16203b;
+  --ci-petrol: #00a3a3;
+  --ci-pink: #db3360;
+  --ci-gray: #555555;
+  --ci-border: #a7a8aa;
+  --ci-white: #ffffff;
+  --ci-black: #000000;
+  --orb-font-brand: "Montserrat";
+  --orb-font: Montserrat, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --orb-r: 8px;
+  --orb-r-container: 8px;
+  --orb-canvas: var(--ci-white);
+  --orb-surface: color-mix(in srgb, var(--ci-border) 10%, var(--ci-white));
+  --orb-surface-2: var(--orb-surface);
+  --orb-surface-3: color-mix(in srgb, var(--ci-border) 16%, var(--ci-white));
+  --orb-fg: var(--ci-black);
+  --orb-fg-strong: var(--ci-night);
+  --orb-table-fg: var(--ci-night);
+  --orb-muted: var(--ci-gray);
+  --orb-border: color-mix(in srgb, var(--ci-border) 40%, transparent);
+  --orb-divider: var(--orb-border);
+  --orb-primary: var(--ci-blue);
+  --orb-on-primary: var(--ci-white);
+  --orb-accent: var(--ci-petrol);
+  --orb-link: var(--ci-blue);
+  /* Compatibility aliases represent opacity states, not generated hue scales. */
+  --orb-p50: color-mix(in srgb, var(--ci-blue) 6%, var(--ci-white));
+  --orb-p100: color-mix(in srgb, var(--ci-blue) 10%, var(--ci-white));
+  --orb-p200: color-mix(in srgb, var(--ci-blue) 16%, transparent);
+  --orb-p300: var(--ci-blue);
+  --orb-p600: var(--ci-night);
+  --orb-p700: var(--ci-black);
+  --orb-hover: color-mix(in srgb, var(--ci-blue) 6%, transparent);
+  --orb-selected: color-mix(in srgb, var(--ci-blue) 10%, transparent);
+  --orb-focus-ring: color-mix(in srgb, var(--ci-blue) 16%, transparent);
+  --orb-focus-solid: var(--ci-blue);
+  --orb-disabled-fg: var(--ci-gray);
+  --orb-disabled-bg: var(--orb-surface-3);
+  --orb-info: var(--ci-blue);
+  --orb-info-bg: var(--orb-p50);
+  --orb-success: var(--ci-night);
+  --orb-success-bg: color-mix(in srgb, var(--ci-petrol) 10%, var(--ci-white));
+  --orb-warn: var(--ci-gray);
+  --orb-warn-bg: color-mix(in srgb, var(--ci-gray) 6%, var(--ci-white));
+  --orb-err: var(--ci-pink);
+  --orb-err-bg: color-mix(in srgb, var(--ci-pink) 6%, var(--ci-white));
+  --orb-inverse-surface: var(--ci-night);
+  --orb-inverse-fg: var(--ci-white);
+  --orb-inverse-link: var(--ci-white);
+  --orb-shadow-1: 0 2px 8px rgb(22 32 59 / 4%);
+  --orb-shadow-2: 0 8px 24px rgb(22 32 59 / 8%);
+  --orb-shadow-3: 0 24px 64px rgb(22 32 59 / 16%);
+  --orb-nav-footer-border: var(--orb-border);
+  --orb-nav-item-fg: var(--ci-gray);
+  --orb-nav-item-hover-border: transparent;
+  --orb-nav-item-hover-bg: var(--orb-hover);
+  --orb-nav-item-hover-fg: var(--ci-blue);
+  --orb-nav-active-border: transparent;
+  --orb-nav-active-bg: var(--orb-p50);
+  --orb-nav-active-fg: var(--ci-blue);
+  --orb-nav-active-bar: var(--ci-blue);
+  --orb-nav-scrollbar: var(--orb-border);
+}
+.orb-root .orb-btn { min-height: 44px; line-height: 1.55; font-weight: 500; }
+.orb-root .orb-btn-sm { min-height: 36px; }
+.orb-root .orb-btn-primary { box-shadow: none; }
+.orb-root .orb-btn-accent { background: var(--ci-blue); color: var(--ci-white); }
+.orb-root .orb-btn-primary:hover:not(:disabled),
+.orb-root .orb-btn-accent:hover:not(:disabled) { background: var(--ci-night); }
+.orb-root .orb-inp { min-height: 44px; border-radius: 8px; font: 400 14px/1.55 var(--orb-font); color: var(--ci-night); }
+.orb-root .orb-inp::placeholder { color: var(--ci-gray); opacity: .85; }
+.orb-root .orb-icon-btn { width: 44px; height: 44px; }
+.orb-root .orb-card { background: var(--ci-white); border-color: var(--orb-border); box-shadow: none; }
+.orb-root .orb-overlay { background: rgb(22 32 59 / 40%); }
+.orb-root .orb-tbl { font-weight: 400; }
+.orb-root .orb-tbl th { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.orb-root .orb-tbl td { font-weight: 400; }
+.orb-root .orb-alert-info { background: var(--orb-p50); color: var(--ci-blue); }
+.orb-root .orb-meta { font: 400 12px/1.6 var(--orb-font); color: var(--ci-gray); }

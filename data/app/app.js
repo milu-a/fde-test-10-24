@@ -79,6 +79,7 @@
   /* ---------------- 首页 ---------------- */
   function renderHome() {
     renderNav();   // 返回首页路径不经 renderCtx，需单独刷新导航活动态
+    $("#projectCount").textContent = state.projects.length;
     const q = state.projQ.trim().toLowerCase();
     const list = state.projects.filter((p) =>
       (!state.navMonth || monthKey(p) === state.navMonth) &&
@@ -94,27 +95,33 @@
     $("#projGrid").innerHTML = list.length ? list.map((p) => {
       const sm = p.summary || {};
       return `
-      <div class="proj-card orb-card orb-card-raised" data-proj="${esc(p.id)}">
-        <div class="row1"><span class="pid">${esc(p.id)}</span><span class="pname">${esc(p.name)}</span>
-          <span class="spacer" style="flex:1"></span><span class="badge ${STATUS_CLS[p.status] || ""}">${esc(p.status)}</span></div>
-        <div class="meta"><span>负责人 <b>${esc(p.owner)}</b></span><span>报价 <b>${sm.suppliers || 0} 家</b></span>
-          <span>台账 <b>${sm.has_ledger ? "V1 原始" : "—"}</b></span><span>待办 <b>0</b> 项</span></div>
-        <div class="act">${esc(p.created_at)} · ${esc(p.owner)} 创建项目 · 点击进入工作区</div>
-      </div>`;
+      <button class="proj-card orb-card" data-proj="${esc(p.id)}">
+        <span class="row1"><span class="pid">${esc(p.id)}</span><span class="badge ${STATUS_CLS[p.status] || ""}">${esc(p.status)}</span></span>
+        <span class="pname">${esc(p.name)}</span>
+        <span class="meta"><span>负责人 <b>${esc(p.owner)}</b></span><span>报价 <b>${sm.suppliers || 0} 家</b></span>
+          <span>台账 <b>${sm.has_ledger ? "已生成" : "待归集"}</b></span></span>
+        <span class="act"><span>${esc(String(p.created_at).slice(0, 10))} 创建</span><span class="project-enter">进入工作区 →</span></span>
+      </button>`;
     }).join("")
       : (state.projects.length
-        ? `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">没有符合条件的项目——试试点击时间分组或清除时间筛选，调整搜索关键字与状态筛选。</p>`
-        : `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">暂无比选项目——点击左侧「＋ 新建比选项目」创建第一轮比选；创建后进入工作区归集报价文件。</p>`);
+        ? `<div class="empty-search"><b>没有找到匹配的项目</b><p>试试其他关键词，或清除筛选查看全部项目。</p><button class="orb-btn orb-btn-neutral" data-clear-filters="1">清除筛选</button></div>`
+        : `<div class="onboarding">
+            <div class="onboarding-copy"><span class="eyebrow">开始一轮新的比选</span><h3>从第一个项目开始</h3><p>把分散的报价，放进同一个工作空间。<br>创建项目后，即可上传文件、核对差异并生成台账。</p><button class="orb-btn orb-btn-secondary" data-new-project="1">创建第一个项目 <span aria-hidden="true">→</span></button><span class="format-note">支持 Excel、PDF 与报价截图</span></div>
+            <ol class="onboarding-steps"><li><span class="step-no">01</span><div><b>建立项目，归集原件</b><p>填写项目名称与负责人，上传供应商报价。</p></div></li><li><span class="step-no">02</span><div><b>统一口径，核对差异</b><p>查看异常提示，登记有依据的澄清与修改。</p></div></li><li><span class="step-no">03</span><div><b>保留记录，导出台账</b><p>核对版本差异，交付包含来源与操作记录的五表台账。</p></div></li></ol>
+          </div>`);
   }
 
   /* ---------------- 左侧导航岛（项目按时间分组折叠；展开某组时主区联动筛选） ---------------- */
   function renderNav() {
+    $("#navTotal").textContent = state.projects.length;
+    const ov = $(".nav-overview");
+    if (ov) ov.classList.toggle("active", state.view === "home");
     const el = $("#navProjects");
     if (!el) return;
     const fw = $("#navFuncWrap");
     if (fw) fw.style.display = state.cur ? "" : "none";
     if (!state.projects.length) {
-      el.innerHTML = `<p class="nav-empty">暂无比选项目——点击下方「＋ 新建比选项目」创建。</p>`;
+      el.innerHTML = `<div class="nav-empty"><span class="nav-empty-line"></span><b>还没有项目</b><span>新建后，项目将在这里<br>按时间分组展示。</span></div>`;
       return;
     }
     const groups = new Map();
@@ -634,10 +641,10 @@
       } else {
         $("#anList").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无异常事项：报价归集并生成台账后，系统核对发现的异常会列在这里。</p>`;
       }
-      $("#evtEntries").innerHTML = `
-        <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
-        <button class="orb-btn orb-btn-neutral" id="btnAI" title="第三方模型接口：从纪要提取事件候选（M4 接口位 · 演示环境读取结构化缓存，确认前不动台账）">⚡ AI 提取事件</button>
-        <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
+    $("#evtEntries").innerHTML = `
+      <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
+      <button class="orb-btn orb-btn-neutral" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "演示入口，尚未接入模型服务" : "演示已关闭，请使用人工登记"}">AI 提取演示${state.online ? "" : "（已关闭）"}</button>
+      <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
       const evs = (pb && pb.events ? pb.events : []).slice().reverse();
       $("#evtCards").innerHTML = evs.length ? evs.map((e) => {
         const st = e.status || "待确认";
@@ -1077,65 +1084,108 @@
       </tbody></table>`;
   }
 
-  /* ---------------- 页签⑤ 导出交付 ---------------- */
+  /* ---------------- 页签⑤ 导出交付（远程 DD-UI 版整体重做） ---------------- */
+  let exportBusy = false;
+  function exportContext() {
+    const pb = state.proj;
+    const stages = state.cur ? Object.keys(pb?.ledgers || {}) : Object.keys(STAGE_SHORT).filter(k => state.unlocked[k]);
+    const selected = state.cur ? state.projStage : state.stage;
+    return { pb, stages, stage: stages.includes(selected) ? selected : stages[0], projectId: state.cur?.id || "example" };
+  }
   function renderExport() {
-    if (state.cur) {
-      const pb = state.proj;
-      const stages = Object.keys(pb && pb.ledgers ? pb.ledgers : {});
-      const can = stages.length > 0;
-      $("#btnExport").disabled = !can;
-      $("#btnDeliver").disabled = !can;
-      if (!can) {
-        $("#expChk").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无可导出的台账：先到①收集箱上传供应商报价原件，识别匹配并生成台账后，此处进行导出自检并产出五表 xlsx。</p>`;
-        $("#stageDl").innerHTML = "";
-        $("#expHistory").innerHTML = `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。</p>`;
-        return;
-      }
-      const stage = stages.includes(state.projStage) ? state.projStage : stages[stages.length - 1];
-      const pendEv = pb.counts.pending_events, um = pb.counts.unmatched;
-      $("#expChk").innerHTML = `
-        <div class="chk"><span class="ic ${pendEv + um ? "warn" : "ok"}">${pendEv + um ? "!" : "✓"}</span><span>待确认事件 <b>${pendEv}</b> 条 · M4 未匹配 <b>${um}</b> 项（如实随「需补充事项」表交付，不阻断）</span></div>
-        <div class="chk"><span class="ic ok">✓</span><span>M4 匹配 <b>${pb.match_report.matched}</b> 条 · 供应商 <b>${pb.suppliers_order.length}</b> 家 · 金额计算零LLM、全程 Decimal</span></div>
-        <div class="chk"><span class="ic warn">!</span><span>资格要求清单未挂载：导出的「资格材料清单」表为空（挂载后自动补齐）</span></div>
-        <div class="chk"><span class="ic ok">✓</span><span>口径已统一：含税单口径 · 折算依据逐行随附 · 列示金额只作比对基准 · 系统不推荐中标</span></div>`;
-      $("#stageDl").innerHTML = stages.map((k, i) => `
-        <div class="sheet-card orb-card"><span class="no">${i + 1}</span>
-          <div style="flex:1"><b>${STAGE_LABEL[k]}</b><span>对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单${k === "v1_clarified" ? " · 含已应用事件重算" : ""}</span></div>
-          <a class="orb-btn orb-btn-sm orb-btn-neutral" href="/api/projects/${encodeURIComponent(state.cur.id)}/export?version=${k}" download>下载 xlsx</a></div>`).join("");
-      $("#expHistory").innerHTML = state.exports.length ? state.exports.map((x) => `
-        <div class="chk"><span class="ic ok">✓</span><span>${esc(x)}</span></div>`).join("")
-        : `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。导出即由 M2 生成器在${state.boot.template_found ? "企业模板副本上" : "模板表头新建"}写出 5-sheet xlsx（backend/out/）。</p>`;
+    const { pb, stages, stage, projectId } = exportContext();
+    const can = stages.length > 0;
+    const history = state.exports.filter(x => x.projectId === projectId);
+    $("#exportVersion").innerHTML = can ? stages.map(k => `<option value="${k}" ${k === stage ? "selected" : ""}>${esc(STAGE_LABEL[k] || STAGE_SHORT[k])}</option>`).join("") : '<option>暂无可用版本</option>';
+    $("#exportVersion").disabled = !can || exportBusy;
+    $("#btnExport").disabled = !can || exportBusy;
+    $("#btnExport").textContent = exportBusy ? "正在生成…" : "下载交付包";
+    const delivered = ["已交付评审", "已定标", "已归档"].includes(state.cur?.status);
+    $("#btnDeliver").hidden = !can || (!history.length && !delivered);
+    $("#btnDeliver").disabled = delivered || !state.cur;
+    $("#btnDeliver").textContent = delivered ? "已交付评审" : "标记为已交付评审";
+    $("#expHistory").innerHTML = history.length ? history.map(x => `<div class="export-record"><span><b>${esc(x.label)}</b><span>Excel · 已发起下载</span></span><time>${esc(x.time)}</time></div>`).join("") : '<p class="export-muted">暂无记录</p>';
+    if (!can) {
+      $("#exportMeta").textContent = "上传报价并生成台账后，即可下载。";
+      $("#expChk").innerHTML = '<p class="export-muted">暂无可检查的台账。<button class="orb-link" data-tab="1">前往收集箱 →</button></p>';
       return;
     }
-    $("#btnExport").disabled = false;
-    $("#btnDeliver").disabled = false;
-    const checks = state.boot.checks;
-    const okN = checks.filter((c) => c.ok).length;
-    const issues = state.issues[state.stage] || [];
-    const open = issues.filter((i) => !i.closed).length;
-    $("#expChk").innerHTML = `
-      <div class="chk"><span class="ic ${open ? "warn" : "ok"}">${open ? "!" : "✓"}</span><span>未关闭事项 <b>${open}</b> 项 / 已澄清关闭 <b>${issues.length - open}</b> 项（如实写入「需补充事项」表，不阻断交付）</span></div>
-      <div class="chk"><span class="ic ok">✓</span><span>引擎回归自检 <b>${okN}/${checks.length}</b> 项通过（底稿数字核对）　<button class="orb-btn orb-btn-sm orb-btn-neutral" id="btnChecks" style="height:22px;padding:0 8px;font-size:11px">明细</button></span></div>
-      <div class="chk"><span class="ic ok">✓</span><span>口径已统一：双口径并列 · 折算依据逐行随附 · 列示金额只作比对基准</span></div>
-      <div class="chk"><span class="ic warn">!</span><span>资格待补 2 项：乙检测资质未提交；丁资质 2026-08-31 到期未续（保持未关闭，由评审判断）</span></div>
-      <div id="checkList" class="hidden" style="max-height:190px;overflow:auto;border:1px solid var(--line-2);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--ink-3);margin-top:6px">
-        ${checks.map((c) => `<div>${c.ok ? "✓" : "✗"} ${esc(c.msg)}</div>`).join("")}
-      </div>`;
-    $("#btnChecks").onclick = () => $("#checkList").classList.toggle("hidden");
-
-    $("#expHistory").innerHTML = state.exports.length ? state.exports.map((x) => `
-      <div class="chk"><span class="ic ok">✓</span><span>${esc(x)}</span></div>`).join("")
-      : `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。导出即由 M2 生成器在${state.boot.template_found ? "企业模板副本上" : "模板表头新建"}写出 5-sheet xlsx（backend/out/）。</p>`;
-
-    $("#stageDl").innerHTML = Object.keys(STAGE_SHORT).map((k, i) => `
-      <div class="sheet-card orb-card"><span class="no">${i + 1}</span>
-        <div style="flex:1"><b>${STAGE_SHORT[k]}</b><span>对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单${k === "v2" ? " · 附较V1差异行" : ""}${k === "v1_raw" ? " · 异常线索最全" : ""}</span></div>
-        <a class="orb-btn orb-btn-sm orb-btn-neutral" href="/api/export/${k}" download>下载 xlsx</a></div>`).join("");
+    const suppliers = state.cur ? pb.suppliers_order.length : SUPS.length;
+    $("#exportMeta").textContent = `${suppliers} 家供应商${state.cur ? ` · ${pb.match_report.matched} 条已匹配` : ""} · 包含 5 张工作表`;
+    let summary, detail;
+    if (state.cur) {
+      const um = pb.match_report.unmatched || [];
+      const pending = pb.counts.pending_events;
+      summary = [um.length ? `${um.length} 项报价待匹配` : "", pending ? `${pending} 条事件待确认` : "", "资格材料未配置"].filter(Boolean).join(" · ");
+      detail = `<ul>${um.map(u => `<li><b>${esc(u.vendor)} · ${esc(u.name || "未命名报价项")}</b><span>${esc(String(u.basis || "").replace(/^M4/, ""))}${u.file ? ` · ${esc(u.file)}` : ""}</span></li>`).join("")}${pending ? `<li>${pending} 条事件尚未确认，不计入所选版本。<button class="orb-link" data-tab="3">查看事件 →</button></li>` : ""}<li>资格材料清单为空，交付前请另行核对。</li></ul><button class="orb-link" data-tab="3">查看台账异常与澄清 →</button>`;
+    } else {
+      const issues = state.issues[stage] || [];
+      const open = issues.filter(i => !i.closed).length;
+      summary = `${open} 项待核查 · 资格材料待补充`;
+      detail = '<p>乙检测资质未提交；丁资质到期未续，请核对后交付。</p><button class="orb-link" data-tab="3">查看异常与澄清 →</button>';
+    }
+    $("#expChk").innerHTML = `<details class="export-issues"><summary><span class="export-issue-summary">${summary.split(" · ").map(part => `<span>${esc(part)}</span>`).join("")}</span><span class="export-detail-label">查看详情</span></summary><div class="export-issue-body">${detail}</div></details><p class="export-muted export-issue-note">待补充事项不阻止下载，请结合台账中的「需补充事项」核对。</p>`;
+  }
+  async function downloadExport() {
+    const { stages, stage, projectId } = exportContext();
+    if (!stages.length || exportBusy) return;
+    const label = STAGE_LABEL[stage] || STAGE_SHORT[stage];
+    const url = state.cur ? `/api/projects/${encodeURIComponent(projectId)}/export?version=${stage}` : `/api/export/${stage}`;
+    exportBusy = true;
+    renderExport();
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`服务返回 ${response.status}，请重试`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${projectId}_${label}_比选台账.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      state.exports.unshift({ projectId, label, time: new Date().toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" }) });
+      toast(`${esc(label)} 交付包已生成，已发起下载。`);
+    } catch (e) {
+      toast(`下载失败：${esc(e instanceof TypeError ? "无法连接服务，请稍后重试" : e.message)}`);
+    } finally {
+      exportBusy = false;
+      renderExport();
+    }
   }
 
   /* ---------------- 弹层 / 登记 / AI 位 ---------------- */
-  function showModal(id) { $("#" + id).classList.add("show"); }
-  function hideModals() { document.querySelectorAll(".overlay").forEach((o) => o.classList.remove("show")); }
+  let modalTrigger = null;
+  function showModal(id) {
+    modalTrigger = document.activeElement;
+    const overlay = $("#" + id);
+    overlay.classList.add("show");
+    const modal = overlay.querySelector(".modal");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", overlay.querySelector(".mhead b").textContent);
+    overlay.querySelectorAll(".fld").forEach((fld) => {
+      const input = fld.querySelector("input,select"), label = fld.querySelector("label");
+      if (input && label && input.id) label.htmlFor = input.id;
+    });
+    $(".app-shell").inert = true;
+    (overlay.querySelector(".mbody input:not(:disabled),.mbody select:not(:disabled)") || overlay.querySelector("button")).focus();
+  }
+  function hideModals() {
+    document.querySelectorAll(".overlay").forEach((o) => o.classList.remove("show"));
+    $(".app-shell").inert = false;
+    if (modalTrigger && modalTrigger.isConnected) modalTrigger.focus();
+  }
+  document.addEventListener("keydown", (ev) => {
+    const overlay = $(".overlay.show");
+    if (!overlay) return;
+    if (ev.key === "Escape") { ev.preventDefault(); hideModals(); return; }
+    if (ev.key === "Tab") {
+      const focusable = [...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex="0"]')].filter((el) => el.getClientRects().length);
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    }
+  });
   function registerModal() {
     if (state.cur) {
       const pb = state.proj;
@@ -1231,16 +1281,16 @@
     $("#mNewBody").innerHTML = `
       <div class="form-grid">
         <div class="fld"><label>项目编号（自动生成）</label>
-          <input class="orb-inp" value="${esc(state.nextId)}" disabled style="background:#f6f7f9;color:var(--ink-3)"></div>
+          <input class="orb-inp" value="${esc(state.nextId)}" disabled style="background:var(--orb-surface);color:var(--ink-3)"></div>
         <div class="fld"><label>项目状态（创建后随流程流转）</label>
-          <input class="orb-inp" value="配置中" disabled style="background:#f6f7f9;color:var(--ink-3)"></div>
+          <input class="orb-inp" value="配置中" disabled style="background:var(--orb-surface);color:var(--ink-3)"></div>
         <div class="fld"><label>项目名称 <i>*</i></label>
           <input class="orb-inp" id="npName" maxlength="60" placeholder="如：园区现场测量与检测"></div>
         <div class="fld"><label>项目负责人 <i>*</i></label>
           <input class="orb-inp" id="npOwner" maxlength="30" placeholder="如：商务人员A"></div>
         <div class="fld"><label>项目时间（左侧导航按此时间分组）</label>
           <input class="orb-inp" id="npTime" type="date" value="${localToday()}"></div>
-        <div class="fld full" style="font-size:12px;color:var(--ink-4);line-height:1.8">统一清单、计算规则版本与资格要求按组织级默认挂载（界面设计文档 §5.0）；供应商名单与报价在工作区收集箱逐步归集。</div>
+        <div class="fld full form-note">创建后可在收集箱上传报价。本项目使用默认的测量检测清单，资格材料暂需另行核对。</div>
       </div>`;
     showModal("mNew");
     $("#npName").focus();
@@ -1309,7 +1359,7 @@
       const j = await r.json();
       if (!r.ok) { toast(`流转失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
-      toast(`项目状态已流转：<b>已交付评审</b>（状态机 §6.1，已写入项目档案）。`);
+      toast(`项目状态已流转：<b>已交付评审</b>，已保存至项目档案。`);
     } catch (e) {
       toast(`流转失败：${esc(e.message)}`);
     }
@@ -1326,7 +1376,7 @@
       const stages = Object.keys(pb.ledgers || {});
       state.projStage = stages.includes("v1_clarified") ? "v1_clarified" : (stages[0] || "v1_raw");
       const i = state.projects.findIndex((x) => x.id === pb.project.id);
-      if (i >= 0) state.projects[i] = pb.project;
+      if (i >= 0) state.projects[i] = { ...pb.project, summary: { suppliers: pb.suppliers_order.length, has_ledger: stages.length > 0 } };
       renderAll();
       if (state.drawerKey) openCellDrawer(state.drawerKey);   // 台账重算后刷新已打开的单元格抽屉
     } catch (e) {
@@ -1336,9 +1386,12 @@
 
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-aiq],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#cdClose,#cdSubmit,#aiSend,#aiClear,#navToggle");
+    const t = ev.target.closest("[data-home],[data-new-project],[data-clear-filters],[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-aiq],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#cdClose,#cdSubmit,#aiSend,#aiClear,#navToggle");
     if (!t) return;
     const ds = t.dataset;
+    if (ds.newProject) return openNewProjModal();
+    if (ds.home) { closeCellDrawer(); state.view = "home"; state.cur = null; state.proj = null; switchView(); return; }
+    if (ds.clearFilters) { state.projQ = ""; state.projFilter = "全部"; state.navMonth = null; $("#projSearch").value = ""; renderHome(); return; }
     if (t.id === "btnNewProj") return openNewProjModal();
     if (t.id === "mNewOk") return submitNewProject();
     if (t.id === "btnQuickUpload") return getFileInput().click();
@@ -1347,24 +1400,10 @@
     if (ds.evdis) return discardEvent(ds.evdis);
     if (t.id === "btnManual") return registerModal();
     if (t.id === "btnAI") {
-      return toast("正在调用第三方模型接口提取事件候选…（演示：读取结构化缓存，与仓库 gc017_events.json 同构）");
+      return toast("事件 AI 提取为演示入口，尚未接入模型服务。请使用人工登记添加事件。");
     }
     if (t.id === "mRegOk") return submitRegister();
-    if (t.id === "btnExport") {
-      if (state.cur) {
-        const stage = STAGE_LABEL[state.projStage] ? state.projStage : "v1_raw";
-        state.exports.unshift(`${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · 导出 ${STAGE_LABEL[stage]} 台账 xlsx（backend/out/）`);
-        renderExport();
-        const a = document.createElement("a");
-        a.href = `/api/projects/${encodeURIComponent(state.cur.id)}/export?version=${stage}`;
-        a.download = ""; a.click();
-        return toast("M2 生成器已按当前版本写出 5-sheet 台账 xlsx（企业模板副本填写），开始下载。");
-      }
-      state.exports.unshift(`${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · 导出 ${STAGE_SHORT[state.stage]} 台账 xlsx（backend/out/）`);
-      renderExport();
-      const a = document.createElement("a"); a.href = `/api/export/${state.stage}`; a.download = ""; a.click();
-      return toast("M2 生成器已写出 5-sheet 台账 xlsx（企业模板副本填写），开始下载。");
-    }
+    if (t.id === "btnExport") return downloadExport();
     if (ds.open) { state.view = "project"; switchView(); return; }
     if (ds.proj) { const p = state.projects.find((x) => x.id === ds.proj); if (p) openProject(p); return; }
     if (ds.ver) { if (state.cur) { state.projStage = ds.ver; } else { state.stage = ds.ver; } renderAll(); if (state.drawerKey) openCellDrawer(state.drawerKey); return; }
@@ -1403,6 +1442,7 @@
   });
   document.querySelectorAll(".overlay").forEach((o) => o.addEventListener("click", (e) => { if (e.target === o) hideModals(); }));
   document.addEventListener("change", (ev) => {
+    if (ev.target.id === "exportVersion") { if (state.cur) state.projStage = ev.target.value; else state.stage = ev.target.value; renderCtx(); renderExport(); }
     if (ev.target.id === "diffA") { state.diffA = ev.target.value; renderVersions(); }
     if (ev.target.id === "diffB") { state.diffB = ev.target.value; renderVersions(); }
   });
@@ -1432,6 +1472,7 @@
     const dz = document.querySelector("#dropzone");
     if (!dz) return;
     dz.addEventListener("click", () => getFileInput().click());
+    dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); getFileInput().click(); } });
     dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
     dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
     dz.addEventListener("drop", (e) => {
