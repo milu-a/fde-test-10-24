@@ -44,7 +44,7 @@
     view: "home", tab: 2, stage: "v1_raw",
     unlocked: { v1_raw: true, v1_clarified: false, v2: false },
     boot: null, ledgers: {}, issues: {},
-    queue: [], online: false, exports: [], manual: [],
+    queue: [], exports: [], manual: [],
     recognition: { engines: [], results: [] },
     projects: [], nextId: "", cur: null,   // cur = 当前打开的比选项目（新建项目空壳工作区）
     proj: null, projStage: "v1_raw",       // proj = board 数据；projStage = 项目台账当前查看版本
@@ -52,7 +52,8 @@
     projQ: "", projFilter: "全部",   // 首页项目检索与状态筛选（只作用于主区卡片）
     navMonth: null,                  // 左侧导航展开的时间分组（null = 全部折叠，主区显示全部）
     amountMode: "hs",                // 台账金额口径：hs=含税 / ws=未税（含税不可折算的格在未税口径显示未税额 + *）
-    drawerKey: null                  // 当前打开的单元格抽屉（"itemId|supplier"）
+    drawerKey: null,                 // 当前打开的单元格抽屉（"itemId|supplier"）
+    aiStatus: null, aiMsgs: [], aiBusy: false   // 智慧报表：AI 服务状态 + 会话（内存，不落盘）
   };
 
   /* ---------------- 基础工具 ---------------- */
@@ -125,8 +126,9 @@
     el.innerHTML = [...groups.keys()].sort((a, b) => b.localeCompare(a)).map((k) => {
       const open = state.navMonth === k;
       const items = open ? `<div class="nav-month-group">` + groups.get(k).map((p) => `
-        <button class="nav-proj${state.cur && state.cur.id === p.id ? " active" : ""}" data-proj="${esc(p.id)}" title="${esc(p.name)}">
+        <button class="nav-proj${state.cur && state.cur.id === p.id ? " active" : ""}" data-proj="${esc(p.id)}" title="${esc(p.id)} · ${esc(p.name)}">
           <span class="nav-proj-copy"><b>${esc(p.id)}</b><span>${esc(p.name)}</span></span>
+          <span class="nav-proj-short">${esc(String(p.id || "").replace(/^GC-?/, "") || "·")}</span>
         </button>`).join("") + `</div>` : "";
       const label = k === "未标注时间" ? k : monthLabel(k);
       return `<button class="nav-month${open ? " open" : ""}" data-month="${esc(k)}" title="${open ? "点击折叠（右侧恢复显示全部）" : "点击展开，右侧显示该时间的项目"}">
@@ -634,7 +636,7 @@
       }
       $("#evtEntries").innerHTML = `
         <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
-        <button class="orb-btn orb-btn-neutral" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "第三方模型接口：从纪要提取事件候选（M4 接口位）" : "当前离线：第三方模型接口不可用，请使用人工登记路径"}">⚡ AI 提取事件${state.online ? "" : "（离线不可用）"}</button>
+        <button class="orb-btn orb-btn-neutral" id="btnAI" title="第三方模型接口：从纪要提取事件候选（M4 接口位 · 演示环境读取结构化缓存，确认前不动台账）">⚡ AI 提取事件</button>
         <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
       const evs = (pb && pb.events ? pb.events : []).slice().reverse();
       $("#evtCards").innerHTML = evs.length ? evs.map((e) => {
@@ -673,7 +675,7 @@
 
     $("#evtEntries").innerHTML = `
       <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
-      <button class="orb-btn orb-btn-neutral" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "第三方模型接口：从纪要提取事件候选（M4 接口位）" : "当前离线：第三方模型接口不可用，请使用人工登记路径"}">⚡ AI 提取事件${state.online ? "" : "（离线不可用）"}</button>
+      <button class="orb-btn orb-btn-neutral" id="btnAI" title="第三方模型接口：从纪要提取事件候选（M4 接口位 · 演示环境读取结构化缓存，确认前不动台账）">⚡ AI 提取事件</button>
       <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
 
     const cl = state.boot.events.clarify, ch = state.boot.events.change;
@@ -718,6 +720,217 @@
         <span class="target">${esc(m.target)}</span><span class="delta">${esc(m.detail)}　<span class="basis-link">依据：${esc(m.basis)}</span></span></div></div>
       <div class="eops"><span style="font-size:12px;color:var(--ink-4)">示例环境：已登记并留痕，未触发引擎重算。</span></div>
     </div>`).join("");
+  }
+
+  /* ---------------- 页签⑥ 智慧报表（OMPHPanel · AI 对话分析项目数据） ---------------- */
+  const AI_HISTORY_MAX = 8;
+  function aiMd(text) {
+    /* 轻量 markdown → HTML（先转义防注入）：```chart 块渲染为 SVG 图表 */
+    const charts = [];
+    text = String(text ?? "").replace(/```chart\s*([\s\S]*?)```/g, (m, body) => {
+      charts.push(body);
+      return `\u0000CHART${charts.length - 1}\u0000`;
+    });
+    const codes = [];
+    text = text.replace(/```([\w-]*)\s*([\s\S]*?)```/g, (m, lang, body) => {
+      codes.push({ lang, body });
+      return `\u0000CODE${codes.length - 1}\u0000`;
+    });
+    const inline = (s) => esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
+    const lines = text.split("\n");
+    let html = "", list = null, table = null;
+    const closeAll = () => {
+      if (list) { html += `</${list}>`; list = null; }
+      if (table) { html += "</tbody></table></div>"; table = null; }
+    };
+    for (const raw of lines) {
+      const line = String(raw).trimEnd();
+      const t = line.trim();
+      if (!t) { closeAll(); continue; }
+      const tm = t.match(/^\|(.+)\|$/);
+      if (tm) {
+        const cells = tm[1].split("|").map((c) => c.trim());
+        if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;   // 表头分隔行
+        if (!table) {
+          closeAll();
+          table = { head: cells };
+          html += '<div class="md-table-wrap"><table class="md-table"><thead><tr>' +
+            cells.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>";
+        } else {
+          html += "<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>";
+        }
+        continue;
+      }
+      if (table) { html += "</tbody></table></div>"; table = null; }
+      const hm = t.match(/^(#{1,4})\s+(.*)$/);
+      if (hm) { closeAll(); html += `<h${hm[1].length + 2} class="md-h">${inline(hm[2])}</h${hm[1].length + 2}>`; continue; }
+      const ul = t.match(/^[-*]\s+(.*)$/);
+      if (ul) { if (list !== "ul") { closeAll(); html += "<ul>"; list = "ul"; } html += `<li>${inline(ul[1])}</li>`; continue; }
+      const ol = t.match(/^\d+[.、]\s+(.*)$/);
+      if (ol) { if (list !== "ol") { closeAll(); html += "<ol>"; list = "ol"; } html += `<li>${inline(ol[1])}</li>`; continue; }
+      closeAll();
+      html += `<p class="md-p">${inline(t)}</p>`;
+    }
+    closeAll();
+    html = html.replace(/\u0000CODE(\d+)\u0000/g, (m, i) =>
+      `<pre class="md-code"><code>${esc(codes[+i].body)}</code></pre>`);
+    html = html.replace(/\u0000CHART(\d+)\u0000/g, (m, i) => aiChart(charts[+i]));
+    return html;
+  }
+  function aiChart(body) {
+    let spec = null;
+    try { spec = JSON.parse(body); } catch (e) { /* 落到下方无效提示 */ }
+    const data = Array.isArray(spec && spec.data) ? spec.data.filter((d) => d && isFinite(Number(d.value))) : [];
+    if (!spec || !data.length) return '<div class="ai-chart-err">（图表数据无效，已跳过渲染）</div>';
+    const type = spec.type === "line" ? "line" : "bar";
+    const W = 480, H = 240, padL = 86, padB = 46, padT = 36, padR = 14;
+    const iw = W - padL - padR, ih = H - padT - padB;
+    const vals = data.map((d) => Number(d.value));
+    const vmax = Math.max(...vals, 0), vmin = Math.min(...vals, 0);
+    const span = (vmax - vmin) || 1;
+    const y = (v) => padT + ih - ((v - vmin) / span) * ih;
+    const step = iw / data.length;
+    let svg = `<div class="ai-chart"><svg viewBox="0 0 ${W} ${H}" role="img">`;
+    svg += `<text x="${W - padR}" y="20" text-anchor="end" class="ai-chart-title">${esc(String(spec.title || ""))}</text>`;
+    svg += `<text x="6" y="20" text-anchor="start" class="ai-chart-unit">${esc(String(spec.unit || ""))}</text>`;
+    for (let i = 0; i <= 4; i++) {
+      const v = vmin + (span * i) / 4, yy = y(v);
+      svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" class="ai-chart-grid"/>` +
+        `<text x="${padL - 6}" y="${yy + 4}" text-anchor="end" class="ai-chart-tick">${fmt(v)}</text>`;
+    }
+    if (type === "bar") {
+      const bw = Math.min(step * 0.62, 56);
+      data.forEach((d, i) => {
+        const x = padL + step * i + (step - bw) / 2, v = Number(d.value);
+        const top = Math.min(y(v), y(0)), hgt = Math.abs(y(v) - y(0)) || 1;
+        svg += `<rect x="${x}" y="${top}" width="${bw}" height="${hgt}" rx="4" class="ai-chart-bar"/>` +
+          `<text x="${x + bw / 2}" y="${top - 5}" text-anchor="middle" class="ai-chart-val">${fmt(v)}</text>` +
+          `<text x="${x + bw / 2}" y="${H - padB + 16}" text-anchor="middle" class="ai-chart-lbl">${esc(String(d.label))}</text>`;
+      });
+    } else {
+      const pts = data.map((d, i) => [padL + step * i + step / 2, y(Number(d.value))]);
+      svg += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" class="ai-chart-line"/>`;
+      pts.forEach((p, i) => {
+        svg += `<circle cx="${p[0]}" cy="${p[1]}" r="4" class="ai-chart-dot"/>` +
+          `<text x="${p[0]}" y="${p[1] - 9}" text-anchor="middle" class="ai-chart-val">${fmt(vals[i])}</text>` +
+          `<text x="${p[0]}" y="${H - padB + 16}" text-anchor="middle" class="ai-chart-lbl">${esc(String(data[i].label))}</text>`;
+      });
+    }
+    svg += "</svg></div>";
+    return svg;
+  }
+  function aiScrollBottom() {
+    const s = $("#aiScroll");
+    if (s) s.scrollTop = s.scrollHeight;
+  }
+  function aiTurnHtml(m, streaming) {
+    const time = `<span class="orb-omph-actions-time">${esc(m.time || "")}</span>`;
+    if (m.role === "user") {
+      return `<div class="orb-omph-turn"><div class="orb-omph-user"><div class="orb-omph-user-bubble">${esc(m.content)}</div>
+        <div class="orb-omph-user-meta">${time}</div></div></div>`;
+    }
+    if (m.role === "error") {
+      return `<div class="orb-omph-turn"><div class="orb-omph-failure" data-severity="error">${esc(m.content)}</div>
+        <div class="orb-omph-turn-actions">${time}</div></div>`;
+    }
+    return `<div class="orb-omph-turn"><div class="orb-omph-assistant"><div class="markdown-body">${aiMd(m.content)}${streaming ? '<span class="orb-omph-caret"></span>' : ""}</div></div>
+      ${streaming ? "" : `<div class="orb-omph-turn-actions">${time}</div>`}</div>`;
+  }
+  function renderAI() {
+    if (!state.aiStatus) { loadAiStatus(); return; }
+    const st = state.aiStatus;
+    $("#aiProjLabel").textContent = state.cur ? `${state.cur.id} · ${state.cur.name}` : "";
+    const ok = st.available;
+    $("#aiDot").style.background = ok ? "" : "var(--orb-err)";
+    $("#aiStatus").textContent = ok
+      ? `已连接 ${st.model} · 已注入当前项目全部工作台数据`
+      : (st.reason || "AI 服务不可用");
+    $("#aiInput").disabled = !ok;
+    $("#aiInput").placeholder = ok
+      ? "向 AI 提问当前项目的数据，如：总结各供应商报价、哪些分项有异常…（Enter 发送 / Shift+Enter 换行）"
+      : (st.reason || "AI 服务不可用");
+    $("#aiSend").disabled = !ok || state.aiBusy;
+    const col = $("#aiColumn");
+    const msgs = state.aiMsgs;
+    col.innerHTML = msgs.length
+      ? msgs.map((m, i) => aiTurnHtml(m, state.aiBusy && i === msgs.length - 1 && m.role === "assistant" && m.streaming)).join("")
+      : `<div class="ai-empty">
+          <p class="orb-omph-title">让 AI 读取并总结当前项目的台账数据</p>
+          <p class="orb-meta">AI 已获得本项目的统一清单、全版本台账（含未税/含税与异常旗标）、事件与审计留痕。试试：</p>
+          <div class="ai-suggest">
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="总结各供应商当前版本的报价合计，并指出异常较多的供应商">总结各供应商报价与异常</button>
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="对比各供应商含税合计，用柱状图展示">含税合计柱状图</button>
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="列出当前台账里的全部异常旗标，按供应商归类并说明影响">异常旗标清单</button>
+          </div>
+        </div>`;
+    aiScrollBottom();
+  }
+  async function loadAiStatus() {
+    try {
+      state.aiStatus = await getJSON("/api/ai/status");
+    } catch (e) {
+      state.aiStatus = { available: false, reason: "无法获取 AI 服务状态：" + e.message };
+    }
+    renderAI();
+  }
+  async function sendAI(question) {
+    if (!state.cur || state.aiBusy || !question) return;
+    if (!state.aiStatus || !state.aiStatus.available) { renderAI(); return; }
+    state.aiMsgs.push({ role: "user", content: question, time: new Date().toLocaleTimeString("zh-CN", { hour12: false }) });
+    const reply = { role: "assistant", content: "", streaming: true, time: "" };
+    state.aiMsgs.push(reply);
+    state.aiBusy = true;
+    renderAI();
+    const history = state.aiMsgs.slice(0, -2)
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-AI_HISTORY_MAX)
+      .map((m) => ({ role: m.role, content: m.content }));
+    try {
+      const r = await fetch(`/api/projects/${encodeURIComponent(state.cur.id)}/ai-report`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || "HTTP " + r.status);
+      }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          if (!frame.startsWith("data:")) continue;
+          let evt;
+          try { evt = JSON.parse(frame.slice(5).trim()); } catch (e) { continue; }
+          if (evt.delta) {
+            reply.content += evt.delta;
+            renderAI();
+          } else if (evt.error) {
+            reply.role = "error"; reply.content = evt.error; reply.streaming = false;
+            renderAI();
+          } else if (evt.done) {
+            reply.streaming = false;
+            reply.time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+            renderAI();
+          }
+        }
+      }
+    } catch (e) {
+      reply.role = "error";
+      reply.content = "请求失败：" + e.message + "——请确认已运行 python server.py";
+      reply.streaming = false;
+    } finally {
+      state.aiBusy = false;
+      reply.streaming = false;
+      renderAI();
+    }
   }
 
   /* ---------------- 差异预演（dry-run，客户端对比两阶段 Ledger） ---------------- */
@@ -1056,6 +1269,11 @@
     state.proj = null;
     state.view = "project";
     state.navMonth = monthKey(p) || null;   // 侧栏自动展开该项目所在时间组
+    state.tab = 2;                          // 切换项目 → 右侧自动落到「② 统一对比台账」
+    state.projStage = "v1_raw";
+    state.anFilter = "全部";
+    if (state.drawerKey) closeCellDrawer(); // 上一项目的单元格抽屉不带入新项目
+    state.aiMsgs = [];                      // 智慧报表会话按项目隔离（切项目即清空）
     switchView();
     loadProjectBoard();
   }
@@ -1099,8 +1317,10 @@
   /* 项目工作台全量数据（清单 + 识别登记 + 引擎台账 + 匹配报告），上传识别后重取 */
   async function loadProjectBoard() {
     if (!state.cur) return;
+    const pid = state.cur.id;   // 竞态保护：连续切换项目时，慢到的旧响应按归属丢弃
     try {
-      const pb = await getJSON(`/api/projects/${encodeURIComponent(state.cur.id)}/board`);
+      const pb = await getJSON(`/api/projects/${encodeURIComponent(pid)}/board`);
+      if (!state.cur || state.cur.id !== pid) return;   // 响应回来时已切到别的项目 → 丢弃
       state.proj = pb;
       state.cur = pb.project;
       const stages = Object.keys(pb.ledgers || {});
@@ -1116,7 +1336,7 @@
 
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#cdClose,#cdSubmit");
+    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-aiq],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#cdClose,#cdSubmit,#aiSend,#aiClear,#navToggle");
     if (!t) return;
     const ds = t.dataset;
     if (t.id === "btnNewProj") return openNewProjModal();
@@ -1127,7 +1347,6 @@
     if (ds.evdis) return discardEvent(ds.evdis);
     if (t.id === "btnManual") return registerModal();
     if (t.id === "btnAI") {
-      if (!state.online) return;
       return toast("正在调用第三方模型接口提取事件候选…（演示：读取结构化缓存，与仓库 gc017_events.json 同构）");
     }
     if (t.id === "mRegOk") return submitRegister();
@@ -1155,6 +1374,16 @@
     }
     if (t.id === "cdClose") return closeCellDrawer();
     if (t.id === "cdSubmit") return submitDrawerEdit();
+    if (t.id === "aiSend") return sendAI($("#aiInput").value.trim());
+    if (t.id === "aiClear") { state.aiMsgs = []; return renderAI(); }
+    if (t.id === "navToggle") {
+      const sn = $(".sidenav");
+      const collapsed = sn.classList.toggle("collapsed");
+      try { localStorage.setItem("fde_nav_collapsed", collapsed ? "1" : "0"); } catch (e) { /* 隐私模式忽略 */ }
+      $("#navToggle").title = collapsed ? "展开导航栏" : "收起导航栏（右侧自适应放大）";
+      return;
+    }
+    if (ds.aiq) return sendAI(ds.aiq);
     if (ds.amt) { state.amountMode = ds.amt; renderLedger(); return; }
     if (ds.src) return openCellDrawer(ds.src);
     if (ds.qok) { const q = state.queue.find((x) => x.id === ds.qok); q.status = "done"; renderInbox(); renderCtx(); return toast(`字段已确认入账：${q.supplier} ${q.item}（确认动作留痕，实际环境写入操作记录）`); }
@@ -1180,13 +1409,11 @@
   document.addEventListener("input", (ev) => {
     if (ev.target.id === "projSearch") { state.projQ = ev.target.value; renderHome(); }
   });
-  document.addEventListener("click", (ev) => {
-    if (ev.target.closest("#onlToggle")) {
-      state.online = !state.online;
-      ev.target.closest("#onlToggle").classList.toggle("on", state.online);
-      $("#onlChip").innerHTML = state.online ? "第三方模型接口 · 在线" : "内网离线模式";
-      renderEvents();
-      toast(state.online ? "已切换在线：AI 触点可调用第三方接口（结果缓存后经人工确认）。" : "已切换离线：AI 按钮置灰，人工路径承担全部能力；M1/M2 引擎为本地计算，不受影响。");
+  document.addEventListener("keydown", (ev) => {
+    if (ev.target.id === "aiInput" && ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      const q = $("#aiInput").value.trim();
+      if (q) { $("#aiInput").value = ""; sendAI(q); }
     }
   });
 
@@ -1249,9 +1476,9 @@
   function renderTabs() {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", +b.dataset.tab === state.tab));
     document.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("show"));
-    $("#" + { 1: "paneInbox", 2: "paneLedger", 3: "paneEvents", 4: "paneVersions", 5: "paneExport" }[state.tab]).classList.add("show");
+    $("#" + { 1: "paneInbox", 2: "paneLedger", 3: "paneEvents", 4: "paneVersions", 5: "paneExport", 6: "paneAI" }[state.tab]).classList.add("show");
     renderCtx();
-    [renderInbox, renderLedger, renderEvents, renderVersions, renderExport][state.tab - 1]();
+    [renderInbox, renderLedger, renderEvents, renderVersions, renderExport, renderAI][state.tab - 1]();
   }
   function renderAll() { renderCtx(); renderTabs(); }
 
@@ -1272,6 +1499,13 @@
     }
 
     $("#backHome").addEventListener("click", () => { state.view = "home"; state.cur = null; state.proj = null; switchView(); });
+    // 侧栏折叠状态记忆（localStorage；折叠由 #navToggle 切换）
+    try {
+      if (localStorage.getItem("fde_nav_collapsed") === "1") {
+        $(".sidenav").classList.add("collapsed");
+        $("#navToggle").title = "展开导航栏";
+      }
+    } catch (e) { /* 隐私模式忽略 */ }
     ["#diffA", "#diffB"].forEach((sel) => {
       $(sel).innerHTML = Object.keys(STAGE_SHORT).map((k) => `<option value="${k}">${STAGE_SHORT[k]}</option>`).join("");
     });

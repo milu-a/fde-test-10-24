@@ -7,7 +7,7 @@
 <!-- orbcafe-ui@3.1.8 官方 ORBIS 设计系统 CSS（自写样式 + 品牌主题包，本地 vendored） -->
 <link rel="stylesheet" href="data/vendor/orbcafe-ui/orbis.css">
 <link rel="stylesheet" href="data/vendor/orbcafe-ui/themes/orbis.css">
-<link rel="stylesheet" href="data/app/style.css">
+<link rel="stylesheet" href="data/app/style.css?v=20261025d">
 </head>
 <body class="orb-root">
 <div class="app-shell">
@@ -15,8 +15,9 @@
 <!-- ============ 左侧导航岛（orb-navigation-island-v2 玻璃岛 · 比选项目树 + 工作区功能） ============ -->
 <aside class="sidenav orb-navigation-island-v2">
   <div class="nav-brand">
-    <span class="orb-app-header-default-logo">比</span>
+    <img class="logo" src="data/design/logo/ORBIS-Logo-h-RGB.svg" alt="ORBIS" width="49" height="18">
     <div class="brand-copy"><b>分包比选工作台</b><span>归集 · 核对 · 台账 · 留痕</span></div>
+    <button class="orb-icon-btn nav-toggle" id="navToggle" title="收起导航栏（右侧自适应放大）">‹</button>
   </div>
   <div class="nav-scroll">
     <div class="nav-label">比选项目</div>
@@ -25,24 +26,20 @@
     <div id="navFuncWrap" style="display:none">
       <div class="nav-label">工作区功能</div>
       <nav class="nav-funcs">
-        <button class="tab orb-tab" data-tab="1">① 收集箱 <span class="cnt" id="tabCnt1">0</span></button>
-        <button class="tab orb-tab active" data-tab="2">② 统一对比台账 <span class="star">★</span></button>
-        <button class="tab orb-tab" data-tab="3">③ 事件与澄清 <span class="cnt" id="tabCnt3">0</span></button>
-        <button class="tab orb-tab" data-tab="4">④ 版本与差异</button>
-        <button class="tab orb-tab" data-tab="5">⑤ 导出交付</button>
+        <button class="tab orb-tab" data-tab="1"><span class="tab-ico">①</span><span class="tab-name">收集箱</span> <span class="cnt" id="tabCnt1">0</span></button>
+        <button class="tab orb-tab active" data-tab="2"><span class="tab-ico">②</span><span class="tab-name">统一对比台账</span> <span class="star">★</span></button>
+        <button class="tab orb-tab" data-tab="3"><span class="tab-ico">③</span><span class="tab-name">事件与澄清</span> <span class="cnt" id="tabCnt3">0</span></button>
+        <button class="tab orb-tab" data-tab="4"><span class="tab-ico">④</span><span class="tab-name">版本与差异</span></button>
+        <button class="tab orb-tab" data-tab="5"><span class="tab-ico">⑤</span><span class="tab-name">导出交付</span></button>
+        <button class="tab orb-tab" data-tab="6"><span class="tab-ico">⑥</span><span class="tab-name">智慧报表</span></button>
       </nav>
     </div>
   </div>
   <div class="nav-foot">
-    <button class="orb-btn orb-btn-primary orb-btn-block" id="btnNewProj">＋ 新建比选项目</button>
-    <div class="nav-foot-row">
-      <span class="chip orb-chip orb-chip-blue offline" id="onlChip">内网离线模式</span>
-      <span class="toggle" id="onlToggle" title="演示用：切换离线/在线，观察 AI 触点降级"><span class="tk"></span>模拟第三方接口</span>
-    </div>
+    <button class="orb-btn orb-btn-primary orb-btn-block" id="btnNewProj"><span class="btn-plus">＋ </span><span class="btn-name">新建比选项目</span></button>
     <div class="nav-user">
       <span class="orb-avatar">商</span>
       <span class="user-copy"><b>商务人员A</b><span>分包比选 · 商务归集</span></span>
-      <img class="logo" src="data/design/logo/ORBIS-Logo-d-RGB.svg" alt="ORBIS">
     </div>
   </div>
 </aside>
@@ -202,6 +199,32 @@
       </div>
     </div>
   </section>
+
+  <!-- 页签⑥ 智慧报表（orbcafe-ui OMPHPanel 规格 · AI 对话分析当前项目数据） -->
+  <section class="tabpane" id="paneAI">
+    <div class="orb-omph-panel ai-panel">
+      <div class="orb-omph-header">
+        <span class="orb-omph-avatar">AI</span>
+        <div class="ai-head-copy">
+          <div class="orb-omph-title">智慧报表 · <span id="aiProjLabel"></span></div>
+          <div class="orb-omph-subtitle"><span class="orb-omph-dot" id="aiDot" data-active="true"></span><span id="aiStatus">正在连接…</span></div>
+        </div>
+        <div class="orb-omph-header-actions">
+          <button class="orb-omph-icon-btn" id="aiClear" title="清空会话（不影响台账数据）">⌫</button>
+        </div>
+      </div>
+      <div class="orb-omph-stage">
+        <div class="orb-omph-scroll" id="aiScroll">
+          <div class="orb-omph-column" id="aiColumn"></div>
+        </div>
+      </div>
+      <div class="orb-omph-composer">
+        <textarea class="orb-omph-input" id="aiInput" rows="1"
+          placeholder="向 AI 提问当前项目的数据，如：总结各供应商报价、哪些分项有异常…（Enter 发送 / Shift+Enter 换行）"></textarea>
+        <button class="orb-omph-send" id="aiSend" title="发送">➤</button>
+      </div>
+    </div>
+  </section>
 </main>
 </div><!-- /main-col -->
 </div><!-- /app-shell -->
@@ -248,6 +271,6 @@
 
 <div id="toasts"></div>
 
-<script src="data/app/app.js"></script>
+<script src="data/app/app.js?v=20261025d"></script>
 </body>
 </html>

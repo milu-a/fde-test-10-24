@@ -9,7 +9,7 @@
  *      变体，按 orb-btn-primary 规格以 --orb-accent 实现）、台账冻结列/
  *      状态格/旗标、品牌横幅、拖拽区、时间轴、列表组合卡等；
  *   3) app.js 通过 className 复位/类名切换驱动的钩子类（.badge/.cnt/
- *      .tab+.active/.overlay+.show/.toast/.toggle+.on/.mclose 等）保持
+ *      .tab+.active/.overlay+.show/.toast/.mclose 等）保持
  *      原名，这里只做「钩子类 → orb 视觉」的胶水。
  * 兼容别名：app.js 内联样式引用 --ink-3 / --ink-4 / --line-2 /
  *   --orbis-blue，映射到对应 --orb-* 令牌。
@@ -67,8 +67,61 @@ a.orb-btn { text-decoration: none; }
 .sidenav {
   position: sticky; top: 16px; flex: none; width: 268px; height: calc(100vh - 32px);
   display: flex; flex-direction: column; overflow: hidden;
+  transition: width .25s cubic-bezier(.4, 0, .2, 1);
 }
-.nav-brand { display: flex; align-items: center; gap: 12px; padding-left: 14px; padding-right: 14px; }
+.nav-brand { display: flex; align-items: center; gap: 12px; padding-left: 14px; padding-right: 8px; }
+.nav-brand .logo { height: 18px; width: 49px; flex: none; }   /* SVG 无固有宽高，需显式尺寸（viewBox 812.64:296.68 ≈ 2.74:1） */
+.nav-brand .brand-copy { flex: 1; min-width: 0; }
+.nav-toggle { flex: none; font-size: 15px; line-height: 1; }
+
+/* ---- 收起态：64px 窄轨（主区 flex 自适应放大）；状态记忆在 localStorage ---- */
+.sidenav.collapsed { width: 64px; }
+.sidenav.collapsed .nav-brand { flex-direction: column; gap: 8px; padding: 10px 0 4px; }
+.sidenav.collapsed .nav-brand .logo,
+.sidenav.collapsed .nav-brand .brand-copy { display: none; }
+.sidenav.collapsed .nav-toggle { transform: scaleX(-1); }
+.sidenav.collapsed .nav-scroll { padding: 0 6px 10px; }
+.sidenav.collapsed .nav-label { visibility: hidden; height: 10px; padding: 4px 0 0; }
+.sidenav.collapsed .nav-month { justify-content: center; padding: 6px 0; }
+.sidenav.collapsed .nav-month-caret { transform: none !important; }
+.sidenav.collapsed .nav-month-label,
+.sidenav.collapsed .nav-month-count { display: none; }
+.sidenav.collapsed .nav-month.open .nav-month-group { margin: 0 0 4px; }
+.sidenav.collapsed .nav-proj { justify-content: center; padding: 7px 4px; }
+.sidenav.collapsed .nav-proj-copy { display: none; }
+.sidenav.collapsed .nav-proj .nav-proj-short {
+  display: inline-block; min-width: 34px; padding: 4px 0; border-radius: 7px;
+  background: var(--orb-surface); color: var(--orb-nav-item-fg);
+  font: 600 11px/1 var(--orb-font); text-align: center; font-variant-numeric: tabular-nums;
+}
+.nav-proj .nav-proj-short { display: none; }
+.sidenav.collapsed .nav-proj.active .nav-proj-short { background: var(--orb-primary); color: var(--orb-on-primary); }
+.sidenav.collapsed .nav-funcs .tab { justify-content: center; padding: 0 6px; }
+.sidenav.collapsed .nav-funcs .tab .tab-name { display: none; }
+.sidenav.collapsed .nav-funcs .tab .tab-ico { font-size: 16px; }
+.sidenav.collapsed .nav-funcs .tab .star { display: none; }
+.sidenav.collapsed .nav-funcs .tab .cnt { position: absolute; top: 3px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; font-size: 9.5px; }
+.sidenav.collapsed .nav-funcs .tab .cnt.zero { display: none; }
+.sidenav.collapsed .nav-foot { padding: 12px 10px 14px; gap: 12px; }
+.sidenav.collapsed #btnNewProj { padding: 0; font-size: 16px; }
+.sidenav.collapsed #btnNewProj .btn-name { display: none; }
+.sidenav.collapsed .nav-user .user-copy { display: none; }
+.sidenav.collapsed .nav-user { justify-content: center; }
+@media (max-width: 920px) {
+  /* 竖排堆叠布局下不收起（窄轨无意义） */
+  .sidenav.collapsed { width: auto; }
+  .sidenav.collapsed .nav-brand { flex-direction: row; padding: 0 14px; }
+  .sidenav.collapsed .nav-brand .logo,
+  .sidenav.collapsed .nav-brand .brand-copy { display: flex; }
+  .sidenav.collapsed .nav-label,
+  .sidenav.collapsed .nav-month-label,
+  .sidenav.collapsed .nav-month-count { visibility: visible; height: auto; }
+  .sidenav.collapsed .nav-proj-copy,
+  .sidenav.collapsed .nav-user .user-copy { display: flex; }
+  .sidenav.collapsed .nav-funcs .tab .tab-name { display: inline; }
+  .sidenav.collapsed #btnNewProj .btn-name { display: inline; }
+  .sidenav.collapsed #btnNewProj { padding: 0 18px; font-size: 14px; }
+}
 .nav-brand .brand-copy { display: flex; flex-direction: column; min-width: 0; }
 .nav-brand .brand-copy b { font: 700 14px/1.2 var(--orb-font); color: var(--orb-fg-strong); }
 .nav-brand .brand-copy span { font: 500 10.5px/1.3 var(--orb-font); color: var(--orb-muted); }
@@ -146,36 +199,15 @@ a.orb-btn { text-decoration: none; }
 .nav-funcs .tab .cnt { margin-left: auto; }
 
 .nav-foot { border-top: 1px solid var(--orb-nav-footer-border); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
-.nav-foot-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.nav-foot-row .toggle { font-size: 11.5px; }
 .nav-user { display: flex; align-items: center; gap: 10px; }
 .nav-user .user-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .nav-user .user-copy b { font: 700 13px/1.15 var(--orb-font); color: var(--orb-fg-strong); }
 .nav-user .user-copy span { font: 500 9.5px/1.2 var(--orb-font); color: var(--orb-muted); }
-.nav-user .logo { height: 20px; margin-left: auto; }
 @media (max-width: 920px) {
   .app-shell { flex-direction: column; }
   .sidenav { position: static; width: auto; height: auto; }
   .nav-scroll { max-height: 42vh; }
 }
-
-/* 离线状态圆点（orb-chip-blue 之上的状态胶水） */
-.chip.offline::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--orb-primary); }
-
-/* 模拟接口开关 —— orb-sw（38×22 滑块）同规格自写（DOM 结构由 JS 钩子约束） */
-.toggle { display: inline-flex; align-items: center; gap: 10px; font: 300 12.5px/1.4 var(--orb-font); color: var(--orb-fg); user-select: none; cursor: pointer; }
-.toggle .tk {
-  width: 38px; height: 22px; flex: none; border-radius: 11px;
-  background: var(--orb-disabled-bg); border: 1px solid var(--orb-border);
-  position: relative; transition: background var(--orb-t-fast);
-}
-.toggle .tk::after {
-  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-  border-radius: 50%; background: var(--orb-canvas); box-shadow: var(--orb-shadow-1);
-  transition: transform var(--orb-t-fast);
-}
-.toggle.on .tk { background: var(--orb-primary); border-color: var(--orb-primary); }
-.toggle.on .tk::after { transform: translateX(16px); }
 
 /* ============ 页面骨架 ============ */
 .page { max-width: 1440px; margin: 0 auto; padding: 24px; }
@@ -281,9 +313,12 @@ a.orb-btn { text-decoration: none; }
 .tab .star { color: var(--orb-accent); font-size: 11px; }
 
 /* ============ 统一对比台账（库 .orb-tbl 基座 + 应用层） ============ */
-/* 库表默认 collapse；冻结列需要 separate 才能稳定 sticky */
+/* 库表默认 collapse；冻结列需要 separate 才能稳定 sticky。
+   单元格必须实底：sticky 冻结列若透明，横向滚动时后列内容会从其下方穿透重叠。
+   hover 同样用实色混合（不透明），避免半透明底透出滚动内容 */
 table.ledger { border-collapse: separate; border-spacing: 0; font-size: 13px; }
-.ledger th, .ledger td { padding: 8px 10px; text-align: center; white-space: nowrap; }
+.ledger th, .ledger td { padding: 8px 10px; text-align: center; white-space: nowrap; background: var(--orb-canvas); overflow: hidden; }
+.ledger tbody tr:hover td { background: color-mix(in oklch, var(--orb-primary) 6%, var(--orb-canvas)); }
 .ledger th.l, .ledger td.l { text-align: left; }
 .ledger .lock { position: sticky; z-index: 2; border-right: 1px solid var(--orb-border); }
 .ledger .lock1 { left: 0; min-width: 64px; }
@@ -585,6 +620,42 @@ body.splitting .cell-drawer { transition: none; }
 .toast::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--orb-accent); flex: none; }
 .toast b { font-weight: 600; }
 @keyframes orb-toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 页签⑥ 智慧报表：与台账同款满屏布局，OMPHPanel 玻璃面撑满剩余高度 */
+#paneAI.show { display: flex; flex: 1 1 auto; min-height: 0; }
+.ai-panel { flex: 1 1 auto; min-height: 0; border-radius: var(--orb-shell-radius); }
+.ai-head-copy { min-width: 0; }
+.ai-empty { display: flex; flex-direction: column; gap: 8px; padding: 24px 8px; }
+.ai-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+/* AI 回答里的 markdown 微调（基座是库的 .markdown-body） */
+.ai-panel .markdown-body { overflow-wrap: anywhere; }
+.ai-panel .markdown-body .md-h { margin: 14px 0 6px; color: var(--orb-fg-strong); }
+.ai-panel .markdown-body .md-p { margin: 6px 0; }
+.ai-panel .markdown-body ul, .ai-panel .markdown-body ol { margin: 6px 0; padding-left: 22px; }
+.ai-panel .markdown-body .md-code {
+  margin: 8px 0; padding: 10px 12px; overflow: auto;
+  border: 1px solid var(--orb-border); border-radius: var(--orb-r);
+  background: var(--orb-surface); font: 400 12px/1.55 ui-monospace, Consolas, monospace;
+}
+.ai-panel .markdown-body .md-table-wrap { overflow: auto; margin: 8px 0; border: 1px solid var(--orb-border); border-radius: var(--orb-r); }
+.ai-panel .markdown-body .md-table { width: 100%; border-collapse: collapse; font: 500 12.5px/1.5 var(--orb-font); }
+.ai-panel .markdown-body .md-table th { background: var(--orb-surface); font-weight: 600; }
+.ai-panel .markdown-body .md-table th, .ai-panel .markdown-body .md-table td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); text-align: left; white-space: nowrap; }
+
+/* AI 图表（自绘 SVG，orb 令牌配色） */
+.ai-chart { margin: 10px 0; border: 1px solid var(--orb-border); border-radius: var(--orb-r); background: var(--orb-canvas); padding: 8px; }
+.ai-chart svg { display: block; width: 100%; height: auto; }
+.ai-chart-title { font: 600 13px var(--orb-font); fill: var(--orb-fg-strong); }
+.ai-chart-unit { font: 500 11px var(--orb-font); fill: var(--orb-muted); }
+.ai-chart-grid { stroke: var(--orb-chart-grid); stroke-width: 1; }
+.ai-chart-tick { font: 500 11px var(--orb-font); fill: var(--orb-muted); font-variant-numeric: tabular-nums; }
+.ai-chart-lbl { font: 500 12px var(--orb-font); fill: var(--orb-fg); }
+.ai-chart-val { font: 600 11px var(--orb-font); fill: var(--orb-primary); font-variant-numeric: tabular-nums; }
+.ai-chart-bar { fill: var(--orb-primary); }
+.ai-chart-line { fill: none; stroke: var(--orb-primary); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ai-chart-dot { fill: var(--orb-primary); }
+.ai-chart-err { padding: 10px 12px; border: 1px dashed var(--orb-border); border-radius: var(--orb-r); color: var(--orb-muted); font: 500 12px/1.5 var(--orb-font); }
 
 /* ============ 工具类（app.js 显隐钩子） ============ */
 .hidden { display: none !important; }

@@ -22,14 +22,20 @@ pip install paddlepaddle paddleocr
 
 ## 配置 API KEY（识图用）
 
+KEY **只读环境变量 `ZHIPU_API_KEY`**，未配置（或仍是占位符）时本模块导入即抛错（`python server.py` 启动阶段报错退出）：
+
 ```bash
-copy api_config.example.json api_config.json   # 然后编辑 api_config.json 填入 KEY
+# 推荐维护方式：app/.env（server.py 启动时自动加载，不入库）
+copy ../../.env.example ../../.env    # 然后把 ZHIPU_API_KEY 占位符换成真 KEY
+
+# 或临时方式（CMD）：
+set ZHIPU_API_KEY=你的智谱APIKEY
 ```
 
-`api_config.json` 已被 .gitignore 排除，**KEY 不会入库**。两种协议：
+KEY 不进代码、不入仓库（`.env` 已被 .gitignore 排除；历史上的 `api_config.json` 方案已移除）。两种协议：
 
-- `protocol: "anthropic"` + `glm-5.3-flash`（默认）：智谱编程套餐通道，订阅额度内识图
-- `protocol: "v4"` + `glm-4v-flash`：开放平台免费视觉档（自动作为备用引擎）
+- `anthropic` + `glm-5.3-flash`（默认主力）：智谱编程套餐通道，订阅额度内识图
+- `v4` + `glm-4v-flash`（自动备用）：开放平台免费视觉档
 
 ## 使用
 
@@ -56,7 +62,6 @@ for r in result["records"]: # 结构化记录，每条带出处
 | `code_readers.py` | 【纯代码】Excel 读取 + PDF 文字层读取 + 文字行结构化 |
 | `model_readers.py` | 【模型】扫描 PDF 逐页渲染与图片识别调度 |
 | `ocr_engines.py` | 可插拔引擎：ApiEngine（双协议）/ PaddleEngine / LibraryEngine |
-| `api_config.example.json` | API KEY 配置模板 |
 
 ## 安全红线
 
