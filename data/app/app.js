@@ -16,6 +16,10 @@
   "use strict";
   const $ = (sel) => document.querySelector(sel);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const businessText = (s) => String(s ?? "")
+    .replace(/（(?:显示为不可比，不当0，规则第二条|未按0计，规则第二条|异常线索，仅提示不自动改写，规则第五条)）/g, "")
+    .replace(/（规则第[一二三四五六七八九十]+条）/g, "")
+    .replace(/（约为下限的([^，）]+)，异常低价线索：警惕漏项少测，仅提示）/g, "（约为下限的$1）");
   const fmt = (x) => (x == null ? "—" : Number(x).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   /* 项目时间分组（左侧导航按月折叠）：created_at 前缀即月份键 */
@@ -193,15 +197,17 @@
                       "税率", "原报金额", "待人工标记", "出处-定位"];
   function recCard(r) {
     const flagged = r.records.filter((x) => x["待人工标记"]).length;
-    return `<div class="rec-card orb-card">
+    const needsHelp = r.needs_model || !r.records.length;
+    const sample = /预转录库/.test(String(r.engine || "") + String(r.note || ""));
+    const hasItems = r.records.some((x) => x["行类型"] === "分项");
+    return `<div class="rec-card orb-card${needsHelp ? " needs" : ""}">
       <div class="rec-head"><b>${esc(r.file)}</b>
-        <span class="bdg info">${esc(r.vendor_guess)}方候选</span>
-        <span class="bdg ${r.needs_model ? "warn" : "petrol"}">${esc(r.channel_desc)}</span>
-        ${r.engine ? `<span class="bdg">${esc(String(r.engine)).slice(0, 30)}</span>` : ""}
-        <span class="bdg">置信度 ${esc(r.confidence || "—")}</span></div>
-      <p>${esc(r.note)}</p>
-      <div class="rec-meta">记录 <b>${r.records.length}</b> 条 · 待人工标记 <b class="${flagged ? "delta-minus" : ""}">${flagged}</b> 条 · 原件 ${esc(r.saved_as)}（只读落位，未覆盖） · ${esc(r.ts)}</div>
-      ${r.records.length ? `<details><summary>展开 ${r.records.length} 条结构化记录（15 字段含出处，与台账流程同构）</summary>
+        ${hasItems ? `<span class="bdg info">供应商候选：${esc(r.vendor_guess || "待确认")}</span>` : ""}
+        <span class="bdg ${needsHelp ? "warn" : "petrol"}">${needsHelp ? "未提取到记录" : sample ? "样例识别结果" : "已识别"}</span>
+        ${flagged ? `<span class="bdg warn">${flagged} 条需核对</span>` : ""}</div>
+      ${needsHelp ? `<p>请更换可读取的文件，或联系管理员。</p>` : ""}
+      <div class="rec-meta">${r.records.length} 条记录 · ${esc(r.ts)}</div>
+      ${r.records.length ? `<details><summary>查看识别记录</summary>
         <div class="rec-table"><table class="orb-tbl"><thead><tr>${REC_FIELDS.map((f) => `<th>${f}</th>`).join("")}</tr></thead><tbody>
           ${r.records.map((x) => `<tr>${REC_FIELDS.map((f) => {
               const v = x[f] ?? "";
@@ -213,39 +219,39 @@
   }
   function renderInbox() {
     const engs = state.boot.recognition_engines || [];
-    $("#dropzone").innerHTML = `拖拽文件到此处，或 <b>点击选择</b>　——　识别通道自动路由：Excel/PDF文字层走纯代码，扫描件/截图走模型引擎链`
-      + `<div class="eng-chain">引擎链：${engs.map((e) => `<span class="${e.available ? "on" : "off"}">${e.available ? "●" : "○"} ${esc(e.name)}</span>`).join(" → ")}</div>`;
+    $("#dropzone").innerHTML = `拖拽文件到此处，或 <b>点击选择</b><span class="upload-formats">Excel / PDF / 图片 · 单个文件不超过 50MB</span>`;
+    $("#recognitionNotice").innerHTML = engs.some((e) => e.available && !/预转录库/.test(e.name))
+      ? "" : `<p class="capability-note">扫描件与截图：当前仅支持预置样例</p>`;
 
     $("#recList").innerHTML = state.recognition.results.length
       ? state.recognition.results.map(recCard).join("")
       : `<p class="hint" style="margin:4px 0 10px">${state.cur
-          ? "尚无上传识别记录——拖拽或点击上方区域，登记该项目的第一份报价原件。"
-          : "尚无上传识别记录。内置样例的识别结果已随项目预载（见下方原件归档区）。"}</p>`;
+          ? "暂无报价文件"
+          : "暂无上传记录"}</p>`;
 
     if (state.cur) {
       const pb = state.proj;
       const myRes = pb ? state.recognition.results.filter((r) => (pb.file_ids || []).includes(r.id)) : [];
       $("#recList").innerHTML = myRes.length
         ? myRes.map(recCard).join("")
-        : `<p class="hint" style="margin:4px 0 10px">尚无上传识别记录——拖拽或点击上方区域，登记该项目的第一份报价原件。</p>`;
+        : `<p class="hint" style="margin:4px 0 10px">暂无报价文件</p>`;
       const pfiles = (pb ? pb.files : []).map((f) => {
         const kind = f.file.endsWith(".xlsx") ? ["excel", "XLSX"] : f.file.endsWith(".pdf") ? ["pdf", "PDF"] : ["scan", "IMG"];
         return `<div class="file-item"><span class="ficon ${kind[0]}">${kind[1]}</span>
-          <span class="fname"><b>${esc(f.file)}</b><span>${esc(f.vendor || "?")}方候选 · ${esc(f.channel_desc || f.channel || "")} · ${esc(f.ts || "")}</span></span>
-          <span class="badge st-archived" style="font-size:11px">原件只读</span></div>`;
+          <span class="fname"><b>${esc(f.file)}</b><span>${esc(f.ts || "")}</span></span></div>`;
       });
       $("#fileList").innerHTML = pfiles.join("");
       const um = pb && pb.match_report ? pb.match_report.unmatched : [];
       $("#queueList").innerHTML = um.length ? um.map((u) => `
-        <div class="qcard low">
-          <div class="thumb" style="display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:11px">无图</div>
+        <div class="qcard low match-card">
           <div>
             <div class="qhead"><b style="font-size:13px">${esc(u.vendor)} · ${esc(u.name || "（空名称行）")}</b>
-              <span class="conf">未匹配 · 不入账</span></div>
-            <p>${esc(u.basis)}　（文件：${esc(u.file)}）</p>
+              <span class="conf">未匹配</span></div>
+            <p>来源：${esc(u.file)}</p>
+            <details class="match-basis"><summary>查看匹配依据</summary><p>${esc(u.basis).replace(/^M4/, "")}</p></details>
           </div>
         </div>`).join("")
-        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无待确认字段：识别结果中的低置信、缺失与未匹配字段会进入此队列，人工逐条确认后才入账。</p>`;
+        : `<p class="empty-copy">暂无待确认事项</p>`;
       return;
     }
 
@@ -282,7 +288,7 @@
   }
   async function uploadFiles(fileList) {
     for (const f of fileList) {
-      toast(`正在识别 <b>${esc(f.name)}</b>…（通道由引擎链自动路由，任何一环失败不硬猜）`);
+      toast(`正在识别 <b>${esc(f.name)}</b>…`);
       try {
         const q = state.cur ? `&project=${encodeURIComponent(state.cur.id)}` : "";
         const r = await fetch(`/api/recognize?filename=${encodeURIComponent(f.name)}${q}`,
@@ -292,13 +298,13 @@
         await loadRecognition();
         if (state.cur) {
           await loadProjectBoard();
-          toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条，已登记进项目并重算台账。`);
+          toast(`<b>${esc(j.file)}</b> · ${j.records.length ? `已提取 ${j.records.length} 条记录` : "未提取到记录，请核对文件"}`);
         } else {
           if (state.tab === 1) renderInbox();
-          toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条${j.needs_model ? "（已转人工，不硬猜）" : ""}`);
+          toast(`<b>${esc(j.file)}</b> · ${j.records.length ? `已提取 ${j.records.length} 条记录` : "未提取到记录，请核对文件"}`);
         }
       } catch (e) {
-        toast(`识别请求失败：${esc(e.message)}——请确认已运行 python server.py`);
+        toast(`识别请求失败：${esc(e.message)}，请检查本地服务`);
       }
     }
   }
@@ -312,7 +318,7 @@
   }
   /* 口径求和：hs=计算含税 / ws=未税（税率未声明也有未税额，不涉及折算） */
   const sumLines = (lines, mode) => lines.reduce((a, c) => a + Number((mode === "ws" ? c.ws : c.hs) || 0), 0);
-  const wsAst = '<i class="ws-ast" title="税率未声明：本列为未税额，含税口径不可折算（不当 0、不硬折算）">*</i>';
+  const wsAst = '<i class="ws-ast" title="税率未声明，暂不能折算含税金额">*</i>';
   /* 新项目台账：识别 → M4 匹配 → 引擎计算的 V1 原始/澄清后（orb-tbl 规格） */
   function renderProjectLedger() {
     const pb = state.proj;
@@ -325,6 +331,7 @@
     $("#legendBar").classList.remove("hidden");
     const sups = pb ? pb.suppliers_order : [];
     const hasData = !!(pb && stages.length && sups.length);
+    $("#legendBar").classList.toggle("hidden", !hasData);
     $("#ledgerEmpty").classList.toggle("hidden", hasData);
     $("#ledgerWrap").classList.toggle("hidden", !hasData);
     if (!hasData) return;
@@ -370,7 +377,7 @@
       const tip = flags.length ? ` title="${esc(flags.join("；"))}"` : "";
       return `<td${flags.length ? ` class="st-flag"${tip}` : tip}>${top}<span class="t-sub">${sub}</span></td>`;
     };
-    const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">合计（上行：计算${ws ? "未税" : "含税"}；下行：原报列示）</td>
+    const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">计算合计<span class="t-sub">原报合计</span></td>
       ${sups.map(totalCell).join("")}</tr>`;
     $("#ledger").innerHTML = `<thead>${head}</thead><tbody>${rows}${totalRow}</tbody>`;
   }
@@ -419,7 +426,7 @@
 
     /* 合计（上行：计算口径随切换；下行：原报列示）与（V2）较V1差异 —— 与 M2 对比表 xlsx 同构 */
     const totTip = esc(SUPS.flatMap((s) => led.totals[s].flags.map((f) => `${s}：${f}`)).join("；"));
-    const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0" title="${totTip}">合计（上行：计算${ws ? "未税" : "含税"}；下行：原报列示）</td>
+    const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0" title="${totTip}">计算合计<span class="t-sub">原报合计</span></td>
       ${SUPS.map((s) => {
         const t = led.totals[s];
         const top = (ws ? t.ws : t.hs) != null ? fmt(ws ? t.ws : t.hs) : "—";
@@ -429,7 +436,7 @@
     let deltaRow = "";
     if (state.stage === "v2") {
       const prev = state.ledgers.v1_clarified.totals;
-      deltaRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">较V1差异（V2合计 − V1澄清后合计，${ws ? "未税" : "含税"}口径）</td>
+      deltaRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">较 V1 澄清后差额</td>
         ${SUPS.map((s) => {
           const a = ws ? led.totals[s].ws : led.totals[s].hs, b = ws ? prev[s].ws : prev[s].hs;
           const d = a != null && b != null ? Number(a) - Number(b) : null;
@@ -497,7 +504,7 @@
     const note = p0 ? (p0.note || "") : "";
     /* 重点：有问题的数据直接说清问题是什么 */
     const problem = (flags.length || note)
-      ? `<div class="cd-problem"><b>问题提示 · 异常只提示不改写原值</b>${esc(flags.join("；"))}${flags.length && note ? "；" : ""}${esc(note)}</div>`
+      ? `${flags.length ? `<div class="cd-problem"><b>待核查</b>${esc(flags.map(businessText).join("；"))}</div>` : ""}${note ? `<details class="match-basis"><summary>查看备注</summary><p>${esc(note)}</p></details>` : ""}`
       : "";
     const facts = p0 ? `
       <div class="cd-facts">
@@ -505,12 +512,12 @@
         <div class="cd-fact"><div class="v">税率</div><div class="n">${esc(p0.tax_state || "—")}</div></div>
         <div class="cd-fact"><div class="v">单位</div><div class="n">${esc(p0.unit_state || "—")}</div></div>
       </div>
-      ${cat && cat.range ? `<div class="cd-range num">参考区间（未税）：${esc(cat.range[0])} – ${esc(cat.range[1])}${p0.ws != null && p0.unit_state === "已确认" ? " · 本行口径已确认可比" : ""}</div>` : ""}` : "";
+      ${cat && cat.range ? `<div class="cd-range num">参考区间（未税）：${esc(cat.range[0])} – ${esc(cat.range[1])}${p0.ws != null && p0.unit_state === "已确认" ? "" : ""}</div>` : ""}` : "";
     const money = p0 ? `
       <div class="cd-kv"><span class="k">原始报价</span><span class="num">${esc(p0.qty ?? "—")}${p0.orig_qty != null && Number(p0.orig_qty) !== Number(p0.qty) ? `（原报 ${esc(p0.orig_qty)}）` : ""}${p0.stated_amount != null ? ` · 列示 ${fmt(p0.stated_amount)}` : ""}</span></div>
       <div class="cd-kv"><span class="k">未税 / 税额 / 含税</span><span class="num">${p0.ws != null ? fmt(p0.ws) : "—"} / ${p0.tax != null ? fmt(p0.tax) : "—"} / ${p0.hs != null ? fmt(p0.hs) : "不可折算"}</span></div>
       ${p0.basis ? `<div class="cd-kv"><span class="k">折算依据</span><span>${esc(p0.basis)}</span></div>` : ""}
-      ${lines.length > 1 ? `<div class="cd-kv"><span class="k">行数</span><span>该清单项共 ${lines.length} 行报价（重复/分列原样保留，见旗标）</span></div>` : ""}` : "";
+      ${lines.length > 1 ? `<div class="cd-kv"><span class="k">行数</span><span>该清单项共 ${lines.length} 行报价</span></div>` : ""}` : "";
     /* 来源与原件（折叠收纳，保持抽屉轻量；每项数字有出处） */
     let srcHtml = "";
     if (proj) {
@@ -519,7 +526,7 @@
       const srcFile = srcParts[0] || "", srcLoc = srcParts.slice(1).join(" · ");
       const recRows = recs.filter((r) => r["行类型"] !== "说明");
       srcHtml = `<div class="cd-kv"><span class="k">来源定位</span><span>${esc(p0 ? p0.source || "—" : "—")}</span></div>` + (recRows.length ? `
-      <details class="cd-src"><summary>识别记录（${recRows.length} 行 · read-file 15 字段）</summary>
+      <details class="cd-src"><summary>识别记录（${recRows.length} 行）</summary>
         <div class="src-table"><table class="orb-tbl"><thead><tr><th>原始编码</th><th>名称</th><th class="orb-num">数量</th><th class="orb-num">单价</th><th>税率</th><th class="orb-num">原报金额</th><th>定位</th></tr></thead><tbody>
         ${recRows.map((r) => `<tr${srcFile && r["出处-文件"] === srcFile && r["出处-定位"] === srcLoc ? ' style="background:var(--orb-p50);box-shadow:inset 3px 0 0 var(--orb-primary)"' : ""}>
           <td>${esc(r["原始编码"])}</td><td>${esc(r["原始分项名称"])}</td><td class="orb-num">${esc(r["数量"])}</td><td class="orb-num">${esc(r["单价"])}</td><td>${esc(r["税率"])}</td><td class="orb-num">${esc(r["原报金额"])}</td><td>${esc(r["出处-定位"])}</td></tr>`).join("")}
@@ -534,32 +541,32 @@
     /* 修改区：仅项目工作台（GC-017 示例走③的事件演示）；走既有事件链，无依据不改数 */
     const defOp = !p0 || p0.status !== "已计算" ? "ADD_LINE" : (p0.hs === null ? "DECLARE_TAX" : "SET_FIELD:unit_price");
     const editSec = proj ? `
-      <div class="cd-sec"><b class="cd-sec-t">修改该单元格（登记事件 · 依据必填）</b>
+      <div class="cd-sec"><b class="cd-sec-t">修改报价</b>
         <div class="fld"><label>修改类型</label>
           <select class="orb-inp" id="cdOp">
-            <option value="DECLARE_TAX"${defOp === "DECLARE_TAX" ? " selected" : ""}>申报税率（税率未给时）</option>
+            <option value="DECLARE_TAX"${defOp === "DECLARE_TAX" ? " selected" : ""}>申报税率</option>
             <option value="SET_FIELD:unit_price"${defOp === "SET_FIELD:unit_price" ? " selected" : ""}>更正单价</option>
             <option value="SET_FIELD:qty"${defOp === "SET_FIELD:qty" ? " selected" : ""}>更正数量</option>
             <option value="SET_FIELD:stated_amount"${defOp === "SET_FIELD:stated_amount" ? " selected" : ""}>更正列示金额</option>
-            <option value="ADD_LINE"${defOp === "ADD_LINE" ? " selected" : ""}>补录漏报行（填 数量×单价 或 整项金额）</option>
-            <option value="DEDUPE">剔除重复行（无需新值）</option>
+            <option value="ADD_LINE"${defOp === "ADD_LINE" ? " selected" : ""}>补录报价</option>
+            <option value="DEDUPE">剔除重复行</option>
           </select></div>
         <div class="fld"><label>新值 <i>*</i></label><input class="orb-inp" id="cdVal" placeholder="如 6% / 460 / 18 / 12×460"></div>
-        <div class="fld"><label>依据文件 + 定位 <i>*无依据不改数</i></label><input class="orb-inp" id="cdEvidence" placeholder="如 供应商澄清纪要.pdf · 第2行"></div>
-        <button class="orb-btn orb-btn-primary" id="cdSubmit">提交修改 → 待确认队列</button>
-        <p class="orb-meta" style="margin-top:8px">提交即登记事件并留痕（下方历史可见）；在③事件与澄清确认应用后引擎重算、生成新版本。</p>
+        <div class="fld"><label>依据文件与位置 <i>*</i></label><input class="orb-inp" id="cdEvidence" placeholder="如 供应商澄清纪要.pdf · 第2行"></div>
+        <button class="orb-btn orb-btn-primary" id="cdSubmit">提交修改</button>
+        <p class="orb-meta" style="margin-top:8px">请在「事件与澄清」确认此修改。</p>
       </div>` : `
-      <div class="cd-sec"><b class="cd-sec-t">修改</b><p class="orb-meta">示例环境（GC-017 演示）不在抽屉内直接修改；实际项目工作台此处可登记修改事件。</p></div>`;
+      <div class="cd-sec"><b class="cd-sec-t">修改</b><p class="orb-meta">演示数据暂不支持直接修改</p></div>`;
     /* 修改历史 */
     const hist = buildCellHistory(sup, itemId, pb, led);
-    const histSec = `<div class="cd-sec"><b class="cd-sec-t">修改历史（人工 / 识别与澄清文件）</b>
+    const histSec = `<div class="cd-sec"><b class="cd-sec-t">修改记录</b>
       ${hist.length ? hist.map((h) => `
         <div class="cd-hist-row">
           <span class="cd-hist-change">${h.kind} · ${h.change}</span>
           <span class="bdg ${histStCls(h.st)}">${esc(h.st)}</span>
           <span class="cd-hist-meta num">${esc(h.time)} · ${esc(h.who)}${h.basis ? " · 依据：" + esc(h.basis) : ""}</span>
         </div>`).join("")
-      : `<p class="orb-meta">该单元格暂无修改记录——识别入账与事件应用（含澄清文件路径）都会在此留痕。</p>`}
+      : `<p class="orb-meta">暂无修改记录</p>`}
     </div>`;
     $("#cdBody").innerHTML = `
       <div class="cd-title">${esc(sup)} · ${esc(itemId)} ${esc(cat ? cat.name : "")}</div>
@@ -577,7 +584,7 @@
     const [op, field] = $("#cdOp").value.split(":");
     const nv = $("#cdVal").value.trim(), basis = $("#cdEvidence").value.trim();
     if (op !== "DEDUPE" && !nv) { toast("登记失败：新值必填。"); return; }
-    if (!basis) { toast("登记失败：依据必填——无依据不改数。"); return; }
+    if (!basis) { toast("请填写依据文件与位置"); return; }
     const [itemId, sup] = state.drawerKey.split("|");
     let payload = null, newVal = nv;
     if (op === "DECLARE_TAX") {
@@ -594,10 +601,10 @@
       });
       const j = await r.json();
       if (!r.ok) { toast(`登记失败：${esc(j.error || "HTTP " + r.status)}`); return; }
-      toast(`修改已登记为事件 <b>${esc(j.event.id)}</b>（待确认·已留痕）——在③事件与澄清确认应用后引擎重算生效。`);
+      toast(`修改已登记，待确认 · ${esc(j.event.id)}`);
       await loadProjectBoard();   // 完成后重取台账，并重开本抽屉以刷新历史
     } catch (e) {
-      toast(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
+      toast(`登记失败：${esc(e.message)}，请检查本地服务`);
     }
   }
 
@@ -628,30 +635,30 @@
               if (seen.has(key)) return;
               seen.add(key);
               rows.push(`<div class="an-row"><span class="cls"><span class="bdg info">${esc(sup)}${collapse ? "" : " · " + cat.id}</span></span>
-                <span class="txt"><b>${esc(f)}</b><small>引擎行级旗标 · 异常只提示不改写原值</small></span>
+                <span class="txt"><b>${esc(businessText(f))}</b></span>
                 <span class="st"><span class="tag-open">● 待核查</span></span></div>`);
             });
           });
         }));
         $("#anList").innerHTML = rows.length ? rows.join("")
-          : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">当前版本无异常旗标。</p>`;
+          : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无待核查事项</p>`;
       } else {
-        $("#anList").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无异常事项：报价归集并生成台账后，系统核对发现的异常会列在这里。</p>`;
+        $("#anList").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无待核查事项</p>`;
       }
       $("#evtEntries").innerHTML = `
-        <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
+        <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记澄清</button>
         <button class="orb-btn orb-btn-neutral" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "演示入口，尚未接入模型服务" : "演示已关闭，请使用人工登记"}">AI 提取演示${state.online ? "" : "（已关闭）"}</button>
-        <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
+        `;
       const evs = (pb && pb.events ? pb.events : []).slice().reverse();
       $("#evtCards").innerHTML = evs.length ? evs.map((e) => {
         const st = e.status || "待确认";
-        const badge = st === "已应用" ? `<span class="bdg petrol">已应用 · 生成新版本</span>`
+        const badge = st === "已应用" ? `<span class="bdg petrol">已应用</span>`
           : st === "已作废" ? `<span class="bdg">已作废</span>` : `<span class="bdg warn">待确认</span>`;
         const target = `${esc(e.supplier)}${e.item ? " · " + esc(e.item) : ""}${e.field ? " · " + esc(e.field) : ""}`;
         const newTxt = e.op === "RESOLVE_UNIT" && e.payload
           ? `1${esc(e.payload.quote_unit || "项")}=${esc(e.payload.items_per_quote_unit)}台班（总价均分）` : esc(e.new || "—");
         const ops = st === "待确认"
-          ? `<button class="orb-btn orb-btn-sm orb-btn-accent" data-evok="${esc(e.id)}">确认并应用 → 重算台账</button>
+          ? `<button class="orb-btn orb-btn-sm orb-btn-accent" data-evok="${esc(e.id)}">确认并应用</button>
              <button class="orb-btn orb-btn-sm orb-btn-neutral" data-evdis="${esc(e.id)}">作废</button>` : "";
         return `<div class="evt-card orb-card"><div class="ehead"><b>${esc(e.id)} · ${esc(EVENT_LABEL[e.op] || e.op)}</b>${badge}
           <span class="spacer" style="flex:1"></span><span class="esub">${esc(e.at)} · ${esc(e.operator)}</span></div>
@@ -661,7 +668,7 @@
         <div class="eops">${ops}<span style="font-size:12px;color:var(--ink-4)">依据：${esc(e.evidence)}${e.note ? " · " + esc(e.note) : ""}</span></div>
       </div>`;
       }).join("")
-        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无事件：经下方人工路径登记澄清（如给「税率未给」的供应商补税率、剔除重复行、更正抄写差错），确认应用后生成 <b>V1 澄清后</b> 版本——依据文件必填，无依据不改数。</p>`;
+        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无澄清记录</p>`;
       return;
     }
     const issues = state.issues[state.stage] || [];
@@ -678,9 +685,9 @@
       </div>`).join("") : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">当前版本无该类事项。</p>`;
 
     $("#evtEntries").innerHTML = `
-      <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记事件（人工路径 · 离线可用）</button>
+      <button class="orb-btn orb-btn-primary" id="btnManual">＋ 登记澄清</button>
       <button class="orb-btn orb-btn-neutral" id="btnAI" ${state.online ? "" : "disabled"} title="${state.online ? "演示入口，尚未接入模型服务" : "演示已关闭，请使用人工登记"}">AI 提取演示${state.online ? "" : "（已关闭）"}</button>
-      <span style="font-size:12px;color:var(--ink-4);align-self:center">事件候选 → 人工逐条确认 → 引擎按序应用重算；确认前不动台账。</span>`;
+      `;
 
     const cl = state.boot.events.clarify, ch = state.boot.events.change;
     $("#evtCards").innerHTML = `
@@ -696,7 +703,7 @@
         <div class="eops">
           ${state.unlocked.v1_clarified
             ? `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-diffjump="v1_clarified">查看差异表（V1 原始 → V1 澄清后）</button>`
-            : `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-dry="v1_clarified">差异预演（dry-run）</button>
+            : `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-dry="v1_clarified">预览差异</button>
                <button class="orb-btn orb-btn-sm orb-btn-accent" data-apply="v1_clarified">确认并应用 → 生成 V1 澄清后</button>`}
           <span style="font-size:12px;color:var(--ink-4)">依据：${esc(cl.doc)}</span>
         </div>
@@ -713,7 +720,7 @@
         <div class="eops">
           ${state.unlocked.v2
             ? `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-diffjump="v2">查看差异表（V1 澄清后 → V2）</button>`
-            : `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-dry="v2" ${state.unlocked.v1_clarified ? "" : "disabled"}>差异预演（dry-run）</button>
+            : `<button class="orb-btn orb-btn-sm orb-btn-neutral" data-dry="v2" ${state.unlocked.v1_clarified ? "" : "disabled"}>预览差异</button>
                <button class="orb-btn orb-btn-sm orb-btn-accent" data-apply="v2" ${state.unlocked.v1_clarified ? "" : "disabled"}>确认并应用 → 生成 V2 变更后</button>`}
           <span style="font-size:12px;color:var(--ink-4)">依据：${esc(ch.doc)} · 乙C08区间线索与资格待补保持未关闭</span>
         </div>
@@ -722,7 +729,7 @@
         <span class="spacer" style="flex:1"></span><span class="esub">${esc(m.time)} · ${esc(m.op)}</span></div>
       <div class="evt-items"><div class="evt-item"><span class="etype">${esc(m.type)}</span>
         <span class="target">${esc(m.target)}</span><span class="delta">${esc(m.detail)}　<span class="basis-link">依据：${esc(m.basis)}</span></span></div></div>
-      <div class="eops"><span style="font-size:12px;color:var(--ink-4)">示例环境：已登记并留痕，未触发引擎重算。</span></div>
+      <div class="eops"><span style="font-size:12px;color:var(--ink-4)">演示记录，未应用</span></div>
     </div>`).join("");
   }
 
@@ -765,7 +772,7 @@
     hideModals();
     renderAll();
     const evtName = target === "v1_clarified" ? "CLARIFY-01" : "CHANGE-01";
-    toast(`已应用 <b>${evtName}</b>：引擎重算完成，台账切换至 <b>${STAGE_SHORT[target]}</b> · 操作留痕 ${curLedger().audit.length} 条（见「版本与差异」）`);
+    toast(`已应用 ${evtName}，台账已更新`);
   }
 
   /* ---------------- 页签④ 版本与差异 ---------------- */
@@ -794,13 +801,13 @@
       const stages = Object.keys(pb && pb.ledgers ? pb.ledgers : {});
       const appliedN = (pb.events || []).filter((e) => e.status === "已应用").length;
       $("#vtimeline").innerHTML = stages.length ? stages.map((k) => {
-        const meta = k === "v1_raw" ? "收集箱识别归集 · 引擎计算" : `已应用事件 ${appliedN} 条`;
+        const meta = k === "v1_raw" ? "" : `已应用事件 ${appliedN} 条`;
         return `<div class="vnode reached ${state.projStage === k ? "cur" : ""}">
           <div class="dot2"></div><b>${STAGE_LABEL[k]}${state.projStage === k ? " · 当前" : ""}</b>
-          <span>${meta} · 留痕 ${pb.ledgers[k].audit.length} 条</span></div>`;
+          <span>${meta ? meta + " · " : ""}操作记录 ${pb.ledgers[k].audit.length} 条</span></div>`;
       }).join("") + (stages.length < 2
-          ? `<div class="vnode"><div class="dot2"></div><b>V1 澄清后</b><span>登记并应用澄清事件后生成（历史版本永不覆盖）</span></div>` : "")
-        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无版本：报价归集生成台账后，事件确认应用即生成新版本。</p>`;
+          ? `<div class="vnode"><div class="dot2"></div><b>V1 澄清后</b><span>待生成</span></div>` : "")
+        : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无台账版本</p>`;
       $("#sumBar").innerHTML = stages.length ? pb.suppliers_order.map((s) => {
         const cur = stages.includes(state.projStage) ? state.projStage : stages[0];
         const t = pb.ledgers[cur].totals[s] || {};
@@ -828,7 +835,7 @@
           : `<p style="color:var(--ink-4);font-size:13px;padding:12px 0">两版本无差异。</p>`;
       } else {
         $("#diffSel").style.display = "none";
-        $("#diffWrap").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:12px">生成 V1 澄清后版本后，可在此对比两版本的逐项差异（每行差异可追溯到事件与依据）。</p>`;
+        $("#diffWrap").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:12px">暂无可对比的版本</p>`;
       }
       const ledCur = stages.length ? pb.ledgers[stages.includes(state.projStage) ? state.projStage : stages[0]] : null;
       $("#opLog").innerHTML = ledCur ? `<table class="orb-tbl"><thead><tr><th style="width:130px">操作时间</th><th style="width:90px">操作者</th><th style="width:64px">供应商</th><th style="width:64px">分项</th><th>原值 → 新值 · 依据</th></tr></thead><tbody>
@@ -839,10 +846,10 @@
     }
     $("#vtimeline").innerHTML = Object.keys(STAGE_SHORT).map((k) => {
       const reached = state.unlocked[k];
-      const meta = { v1_raw: "2026-09-18 · 原件归档 + 引擎计算", v1_clarified: "2026-09-19 · CLARIFY-01 应用", v2: "2026-09-20 · CHANGE-01 应用" }[k];
+      const meta = { v1_raw: "2026-09-18", v1_clarified: "2026-09-19", v2: "2026-09-20" }[k];
       return `<div class="vnode ${reached ? "reached" : ""} ${state.stage === k ? "cur" : ""}">
         <div class="dot2"></div><b>${STAGE_SHORT[k]}${state.stage === k ? " · 当前" : ""}</b>
-        <span>${reached ? meta : "待事件应用后生成"}${reached ? ` · 留痕 ${state.ledgers[k].audit.length} 条` : ""}</span></div>`;
+        <span>${reached ? meta : "待生成"}${reached ? ` · 操作记录 ${state.ledgers[k].audit.length} 条` : ""}</span></div>`;
     }).join("");
 
     const led = curLedger();
@@ -862,7 +869,7 @@
         ${d.map((r) => `<tr><td>${r.sup}</td><td>${r.item}</td><td>${r.field}</td>
           <td class="orb-num">${esc(r.from)}</td><td class="orb-num">${esc(r.to)}</td>
           <td>${esc(r.basis)}</td></tr>`).join("")}</tbody></table>`
-      : `<p style="color:var(--ink-4);font-size:13px;padding:12px 0">所选两版本无差异，请选择不同版本。</p>`;
+      : `<p style="color:var(--ink-4);font-size:13px;padding:12px 0">所选版本无差异</p>`;
 
     $("#opLog").innerHTML = `<table class="orb-tbl"><thead><tr><th style="width:130px">操作时间</th><th style="width:90px">操作者</th><th style="width:64px">供应商</th><th style="width:64px">分项</th><th>原值 → 新值 · 依据</th></tr></thead><tbody>
       ${led.audit.map((o) => `<tr><td class="num">${esc(o["操作时间"])}</td><td>${esc(o["操作者"])}</td><td>${esc(o["供应商"])}</td><td>${esc(o["分项"])}</td>
@@ -979,25 +986,25 @@
         <div class="form-grid">
           <div class="fld"><label>事件类型 <i>*</i></label>
             <select class="orb-inp" id="regType">
-              <option value="DECLARE_TAX">申报税率（补充型 · 如给税率未给的乙补 6%）</option>
-              <option value="SET_FIELD">更正字段（修正型 · 单价/数量/列示金额）</option>
-              <option value="ADD_LINE">补录漏报行（补充型）</option>
-              <option value="DEDUPE">剔除重复行（修正型）</option>
-              <option value="RESOLVE_UNIT">单位口径确认（依据授予型 · 总价均分）</option>
+              <option value="DECLARE_TAX">申报税率</option>
+              <option value="SET_FIELD">更正报价</option>
+              <option value="ADD_LINE">补录报价</option>
+              <option value="DEDUPE">剔除重复行</option>
+              <option value="RESOLVE_UNIT">单位换算（总价均分）</option>
             </select></div>
           <div class="fld"><label>供应商 <i>*</i></label>
             <select class="orb-inp" id="regSup">${pb.suppliers_order.map((s) => `<option>${esc(s)}</option>`).join("")}</select></div>
           <div class="fld"><label>清单项</label>
             <select class="orb-inp" id="regItem">${pb.catalog.items.map((c) => `<option value="${c.id}">${c.id} · ${esc(c.name)}</option>`).join("")}</select></div>
-          <div class="fld"><label>更正字段（SET_FIELD 时生效）</label>
+          <div class="fld"><label>更正字段</label>
             <select class="orb-inp" id="regField"><option value="unit_price">单价</option><option value="qty">数量</option><option value="stated_amount">列示金额</option></select></div>
           <div class="fld"><label>新值 <i>*</i></label>
             <input class="orb-inp" id="regNew" placeholder="税率 6%（或 0.06）；单价 460.00；数量 18；单位确认填 4"></div>
-          <div class="fld"><label>补录行 数量×单价（ADD_LINE 时生效，可空）</label>
+          <div class="fld"><label>补录数量与单价</label>
             <input class="orb-inp" id="regLine" placeholder="如 12×460；留空则新值按整项金额"></div>
-          <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数</i></label>
+          <div class="fld full"><label>依据文件与位置 <i>*</i></label>
             <input class="orb-inp" id="regBasis" placeholder="如 供应商澄清纪要.pdf · 第2行"></div>
-          <div class="fld full"><label>备注（可空）</label><input class="orb-inp" id="regNote" placeholder="补充说明，随事件留痕"></div>
+          <div class="fld full"><label>备注</label><input class="orb-inp" id="regNote" placeholder="选填"></div>
         </div>`;
       showModal("mReg");
       return;
@@ -1005,10 +1012,10 @@
     $("#mRegBody").innerHTML = `
       <div class="form-grid">
         <div class="fld"><label>事件类型 <i>*</i></label>
-          <select class="orb-inp" id="regType"><option>SET_FIELD 更正字段</option><option>ADD_LINE 补录行</option><option>DECLARE_TAX 申报税率</option><option>DEDUPE 剔重</option><option>RESOLVE_UNIT 单位确认</option></select></div>
+          <select class="orb-inp" id="regType"><option>更正字段</option><option>补录行</option><option>申报税率</option><option>剔除重复行</option><option>单位确认</option></select></div>
         <div class="fld"><label>影响对象（供应商 · 清单项 · 字段）<i>*</i></label><input class="orb-inp" id="regTarget" placeholder="如：乙 · C09 · 单价"></div>
         <div class="fld full"><label>变更内容（原值 → 新值）<i>*</i></label><input class="orb-inp" id="regDetail" placeholder="如：（缺价）→ 460.00 元/根 × 12 根"></div>
-        <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数</i></label><input class="orb-inp" id="regBasis" placeholder="如：02 报价澄清/供应商澄清纪要.txt · CLARIFY-01"></div>
+        <div class="fld full"><label>依据文件与位置 <i>*</i></label><input class="orb-inp" id="regBasis" placeholder="如：02 报价澄清/供应商澄清纪要.txt · CLARIFY-01"></div>
       </div>`;
     showModal("mReg");
   }
@@ -1018,7 +1025,7 @@
             field = $("#regField").value, nv = $("#regNew").value.trim(),
             line = $("#regLine").value.trim(), basis = $("#regBasis").value.trim(),
             note = $("#regNote").value.trim();
-      if (!nv || !basis) { toast("登记失败：新值与依据均为必填——无依据不改数。"); return; }
+      if (!nv || !basis) { toast("请填写新值及依据文件"); return; }
       let payload = null, newVal = nv;
       if (op === "DECLARE_TAX") {
         const m = nv.match(/^([\d.]+)\s*%$/);
@@ -1044,17 +1051,17 @@
         hideModals();
         await loadProjectBoard();
         state.tab = 3; renderTabs();
-        toast(`事件 <b>${esc(j.event.id)}</b> 已登记并留痕（待确认——确认应用前不动台账）。`);
+        toast(`澄清事项已登记，待确认 · ${esc(j.event.id)}`);
       } catch (e) {
-        toast(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
+        toast(`登记失败：${esc(e.message)}，请检查本地服务`);
       }
       return;
     }
     const tg = $("#regTarget").value.trim(), dt = $("#regDetail").value.trim(), ba = $("#regBasis").value.trim();
-    if (!tg || !dt || !ba) { toast("登记失败：影响对象、变更内容与依据均为必填——无依据不改数。"); return; }
+    if (!tg || !dt || !ba) { toast("请填写影响对象、变更内容及依据文件"); return; }
     state.manual.push({ id: "EVT-M" + (state.manual.length + 1), type: $("#regType").value, target: tg, detail: dt, basis: ba, time: "2026-09-20 10:00", op: "商务人员A" });
     hideModals(); renderEvents(); renderCtx();
-    toast("事件已登记并进入待确认队列（示例环境不触发引擎重算）。依据已随事件留痕。");
+    toast("演示事件已登记，待确认");
   }
 
   /* ---------------- 新建比选项目 ---------------- */
@@ -1066,17 +1073,17 @@
   function openNewProjModal() {
     $("#mNewBody").innerHTML = `
       <div class="form-grid">
-        <div class="fld"><label>项目编号（自动生成）</label>
+        <div class="fld"><label>项目编号</label>
           <input class="orb-inp" value="${esc(state.nextId)}" disabled style="background:var(--orb-surface);color:var(--ink-3)"></div>
-        <div class="fld"><label>项目状态（创建后随流程流转）</label>
+        <div class="fld"><label>项目状态</label>
           <input class="orb-inp" value="配置中" disabled style="background:var(--orb-surface);color:var(--ink-3)"></div>
         <div class="fld"><label>项目名称 <i>*</i></label>
           <input class="orb-inp" id="npName" maxlength="60" placeholder="如：园区现场测量与检测"></div>
         <div class="fld"><label>项目负责人 <i>*</i></label>
           <input class="orb-inp" id="npOwner" maxlength="30" placeholder="如：商务人员A"></div>
-        <div class="fld"><label>项目时间（左侧导航按此时间分组）</label>
+        <div class="fld"><label>项目日期</label>
           <input class="orb-inp" id="npTime" type="date" value="${localToday()}"></div>
-        <div class="fld full form-note">创建后可在收集箱上传报价。本项目使用默认的测量检测清单，资格材料暂需另行核对。</div>
+        <div class="fld full form-note">使用默认测量检测清单</div>
       </div>`;
     showModal("mNew");
     $("#npName").focus();
@@ -1095,9 +1102,9 @@
       await loadProjects();
       state.navMonth = String(j.created_at || "").slice(0, 7) || null;   // 新项目所在时间组自动展开
       renderHome();
-      toast(`已创建 <b>${esc(j.id)}</b> · ${esc(j.name)}（负责人 ${esc(j.owner)}）——左侧已按「${esc(state.navMonth ? monthLabel(state.navMonth) : "未标注时间")}」分组展开。`);
+      toast(`项目已创建 · ${esc(j.id)} ${esc(j.name)}`);
     } catch (e) {
-      toast(`创建失败：${esc(e.message)}——请确认已运行 python server.py`);
+      toast(`创建失败：${esc(e.message)}，请检查本地服务`);
     }
   }
   function openProject(p) {
@@ -1117,7 +1124,7 @@
       if (!r.ok) { toast(`应用失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
       state.tab = 3; renderTabs();
-      toast(`已应用 <b>${esc(j.event.id)}</b>：引擎重算完成，生成 <b>V1 澄清后</b> 版本（V1 原始基线保留，差异见「版本与差异」）。`);
+      toast(`已应用 ${esc(j.event.id)}，台账已更新`);
     } catch (e) {
       toast(`应用失败：${esc(e.message)}`);
     }
@@ -1128,7 +1135,7 @@
       const j = await r.json();
       if (!r.ok) { toast(`作废失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
-      toast(`事件 <b>${esc(j.event.id)}</b> 已作废（作废不删除，留痕可查）。`);
+      toast(`事件 <b>${esc(j.event.id)}</b> 已作废。`);
     } catch (e) {
       toast(`作废失败：${esc(e.message)}`);
     }
@@ -1182,7 +1189,7 @@
     if (t.id === "btnManual") return registerModal();
     if (t.id === "btnAI") {
       if (!state.online) return;
-      return toast("事件 AI 提取为演示入口，尚未接入模型服务。请使用人工登记添加事件。");
+      return toast("暂未接入 AI 提取，请手动登记");
     }
     if (t.id === "mRegOk") return submitRegister();
     if (t.id === "btnExport") return downloadExport();
@@ -1197,8 +1204,8 @@
     if (t.id === "cdSubmit") return submitDrawerEdit();
     if (ds.amt) { state.amountMode = ds.amt; renderLedger(); return; }
     if (ds.src) return openCellDrawer(ds.src);
-    if (ds.qok) { const q = state.queue.find((x) => x.id === ds.qok); q.status = "done"; renderInbox(); renderCtx(); return toast(`字段已确认入账：${q.supplier} ${q.item}（确认动作留痕，实际环境写入操作记录）`); }
-    if (ds.qwait) { const q = state.queue.find((x) => x.id === ds.qwait); q.status = "done"; renderInbox(); renderCtx(); return toast(`已登记待澄清：${q.supplier} ${q.item}——未知值不入账，等待书面澄清。`); }
+    if (ds.qok) { const q = state.queue.find((x) => x.id === ds.qok); q.status = "done"; renderInbox(); renderCtx(); return toast(`演示确认完成：${q.supplier} ${q.item}`); }
+    if (ds.qwait) { const q = state.queue.find((x) => x.id === ds.qwait); q.status = "done"; renderInbox(); renderCtx(); return toast(`已登记待澄清：${q.supplier} ${q.item}`); }
     if (ds.anf) { state.anFilter = ds.anf; renderEvents(); return; }
     if (ds.pf) { state.projFilter = ds.pf; renderHome(); return; }
     if (ds.month) {

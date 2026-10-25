@@ -422,9 +422,14 @@ body.splitting .cell-drawer { transition: none; }
 }
 .dropzone:hover, .dropzone.drag { border-color: var(--orb-primary); background: var(--orb-p50); color: var(--orb-fg); }
 .dropzone b { color: var(--orb-primary); font-weight: 600; }
-.dropzone .eng-chain { margin-top: 8px; font: 500 11px/1.4 var(--orb-font); display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; align-items: center; }
-.dropzone .eng-chain .on { color: var(--orb-primary); }
-.dropzone .eng-chain .off { color: var(--orb-muted); opacity: .75; }
+.upload-formats { display: block; margin-top: 8px; font-size: 12px; }
+.capability-note { margin: 0 0 14px; color: var(--orb-muted); font: 400 12px/1.6 var(--orb-font); }
+.empty-copy { padding: 12px 0; color: var(--orb-muted); font: 400 13px/1.6 var(--orb-font); }
+.table-hint { font: 400 12px/1.5 var(--orb-font); color: var(--orb-muted); }
+.demo-settings { margin-top: 12px; font: 400 12px/1.6 var(--orb-font); color: var(--orb-muted); }
+.demo-settings summary, .match-basis summary { cursor: pointer; }
+.qcard.match-card { grid-template-columns: 1fr; }
+.match-basis { font: 400 12px/1.6 var(--orb-font); color: var(--orb-muted); }
 
 /* 识别记录卡：基座 .orb-card + 左侧状态条胶水 */
 .rec-card { padding: 11px 14px; border-left: 3px solid var(--orb-primary); margin-bottom: 10px; }
