@@ -347,6 +347,8 @@ table.ledger { border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .ledger .st-pending { background: var(--orb-warn-bg) !important; color: color-mix(in srgb, var(--orb-err) 80%, #000); }
 .ledger .st-missing { background: var(--orb-surface-3) !important; color: var(--orb-muted); }
 .ledger .st-flag { border-bottom: 3px solid var(--orb-err) !important; }
+/* 「只看异常」过滤：无异常行整行隐藏，表头/合计/差异行不受影响 */
+.ledger tr.row-hidden { display: none; }
 /* 合计行 = 库 .orb-table-footer 规格（surface 底 + 700 字重 + 上分隔线） */
 .ledger tr.total td {
   background: var(--orb-surface) !important; border-top: 1px solid var(--orb-border);

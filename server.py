@@ -434,7 +434,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _file(self, path: Path):
+    def _file(self, path: Path, inline: bool = False):
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", MIME.get(path.suffix.lower(),
@@ -442,7 +442,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         fname = quote(path.name)
         self.send_header("Content-Disposition",
-                         f"attachment; filename*=UTF-8''{fname}")
+                         f"{"inline" if inline else "attachment"}; filename*=UTF-8''{fname}")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
@@ -562,6 +562,19 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._file(export_xlsx(stage))
             if path == "/api/recognition":
                 return self._json({"engines": recognition_engines(), "results": recognition_list()})
+            if path.startswith("/api/files/"):
+                raw = unquote(path[len("/api/files/"):]).replace("\\", "/")
+                safe = Path(raw).name
+                if not safe or safe.startswith("."):
+                    return self._json({"error": "无效文件名"}, 400)
+                cand = INBOX / safe
+                if not cand.is_file():
+                    stem, suf = Path(safe).stem, Path(safe).suffix
+                    variants = sorted(INBOX.glob(f"{stem}__*{suf}"), key=lambda q: q.stat().st_mtime)
+                    cand = variants[-1] if variants else None
+                if not cand or not cand.is_file():
+                    return self._json({"error": f"原件不存在：{safe}"}, 404)
+                return self._file(cand, inline=True)
             if path == "/api/ai/status":
                 return self._json(ai_status_payload())
             if path == "/api/projects":

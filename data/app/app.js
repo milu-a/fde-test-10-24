@@ -56,7 +56,8 @@
     drawerTrigger: null,             // 打开抽屉前的焦点元素（关闭时归还焦点）
     lastModalTrigger: null,          // 打开弹层前的焦点元素（关闭时归还焦点）
     lfUserCollapsed: null,            // 图表折叠：null=按视口高度自动（<900px 折叠），true/false=用户手动指定
-    aiStatus: null, aiMsgs: [], aiBusy: false   // 智慧报表：AI 服务状态 + 会话（内存，不落盘）
+    aiStatus: null, aiMsgs: [], aiBusy: false,   // 智慧报表：AI 服务状态 + 会话（内存，不落盘）
+    onlyFlagged: false,              // 台账「只看异常」行过滤（会话级，不入 hash）
   };
 
   /* ---------------- 基础工具 ---------------- */
@@ -370,6 +371,15 @@
       ${excluded ? `<span class="ds-note">${excluded} 家本口径无合计 · 未计入对比</span>` : ""}`;
   }
   /* 新项目台账：识别 → M4 匹配 → 引擎计算的 V1 原始/澄清后（orb-tbl 规格） */
+  /* 「只看异常」按钮同步：计数 = 含旗标/未报/税率未给的行数（无论过滤开关） */
+  function syncOnlyFlag(n) {
+    const b = $("#btnOnlyFlag");
+    if (!b) return;
+    b.setAttribute("aria-pressed", String(!!state.onlyFlagged));
+    b.classList.toggle("orb-btn-primary", !!state.onlyFlagged);
+    b.classList.toggle("orb-btn-neutral", !state.onlyFlagged);
+    b.textContent = n != null ? `只看异常（${n}）` : "只看异常";
+  }
   function renderProjectLedger() {
     const pb = state.proj;
     const stageLabel = { v1_raw: "V1 原始", v1_clarified: "V1 澄清后" };
@@ -417,10 +427,15 @@
       const val = fmt(sumLines(lines, state.amountMode));
       return `<td class="amount${restated}${flagged ? " st-flag" : ""}"${src}${kb(`${val}（${ws ? "未税" : "含税"}）`, flagged)} title="${title}">${val}</td>`;
     };
-    const rows = pb.catalog.items.map((cat) => `
-      <tr><td class="l lock lock1">${cat.id}</td><td class="l lock lock2" title="${esc(cat.name)}">${esc(cat.name)}</td>
+    let flaggedN = 0;
+    const rows = pb.catalog.items.map((cat) => {
+      const cells = sups.map((sup) => cellHtml(cat, sup)).join("");
+      const anomalous = /st-flag|st-missing|st-pending/.test(cells);
+      if (anomalous) flaggedN += 1;
+      return `<tr${state.onlyFlagged && !anomalous ? ' class="row-hidden"' : ""}><td class="l lock lock1">${cat.id}</td><td class="l lock lock2" title="${esc(cat.name)}">${esc(cat.name)}</td>
       <td class="lock lock3">${esc(cat.unit)}</td>
-      <td class="lock lock4">${esc(cat.qty)}</td>${sups.map((sup) => cellHtml(cat, sup)).join("")}</tr>`).join("");
+      <td class="lock lock4">${esc(cat.qty)}</td>${cells}</tr>`;
+    }).join("");
     const totBar = lfTotBar(led, sups, ws);
     const totalCell = (s) => {
       const t = led.totals[s] || {};
@@ -433,6 +448,7 @@
     const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">合计（上行：计算${ws ? "未税" : "含税"}；下行：原报列示）</td>
       ${sups.map(totalCell).join("")}</tr>`;
     $("#ledger").innerHTML = `<thead>${head}</thead><tbody>${rows}${totalRow}</tbody>`;
+    syncOnlyFlag(flaggedN);
   }
   function renderLedger() {
     if (state.cur) return renderProjectLedger();
@@ -449,6 +465,7 @@
     const head = `<tr><th class="l lock lock1">编号</th><th class="l lock lock2">名称</th><th class="lock lock3">单位</th>
       <th class="lock lock4">数量</th>${SUPS.map((v) => `<th>${esc(v)}${ws ? "未税" : "含税"}</th>`).join("")}</tr>`;
 
+    let flaggedN = 0;
     const rows = state.boot.catalog.items.map((cat) => {
       const per = led.rows[cat.id];
       const isV2Changed = state.stage === "v2" && cat.id === "C08";
@@ -475,7 +492,9 @@
         const val = fmt(sumLines(lines, state.amountMode));
         return `<td class="amount${st}${flagged ? " st-flag" : ""}"${src}${kb(`${val}（${ws ? "未税" : "含税"}）`, flagged)} title="${title}">${val}</td>`;
       }).join("");
-      return `<tr><td class="l lock lock1">${cat.id}</td><td class="l lock lock2">${esc(cat.name)}</td>
+      const anomalous = /st-flag|st-missing|st-pending/.test(cells);
+      if (anomalous) flaggedN += 1;
+      return `<tr${state.onlyFlagged && !anomalous ? ' class="row-hidden"' : ""}><td class="l lock lock1">${cat.id}</td><td class="l lock lock2">${esc(cat.name)}</td>
         <td class="lock lock3">${esc(cat.unit)}</td>
         <td class="lock lock4">${qm[cat.id]}</td>${cells}</tr>`;
     }).join("");
@@ -501,6 +520,7 @@
         }).join("")}</tr>`;
     }
     $("#ledger").innerHTML = `<thead>${head}</thead><tbody>${rows}${totalRow}${deltaRow}</tbody>`;
+    syncOnlyFlag(flaggedN);
   }
   /* 口径切换按钮活动态（静态骨架，状态在此同步） */
   function syncAmountMode() {
@@ -610,7 +630,8 @@
       const srcParts = p0 ? String(p0.source || "").split(" · ") : [];
       const srcFile = srcParts[0] || "", srcLoc = srcParts.slice(1).join(" · ");
       const recRows = recs.filter((r) => r["行类型"] !== "说明");
-      srcHtml = `<div class="cd-kv"><span class="k">来源定位</span><span>${esc(p0 ? p0.source || "—" : "—")}</span></div>` + (recRows.length ? `
+      const srcLink = p0 && srcFile ? `　<a class="orb-link" href="/api/files/${encodeURIComponent(srcFile)}" target="_blank" rel="noopener" title="在浏览器中打开只读原件（同名另存取最新）">打开原件 ↗</a>` : "";
+      srcHtml = `<div class="cd-kv"><span class="k">来源定位</span><span>${esc(p0 ? p0.source || "—" : "—")}${srcLink}</span></div>` + (recRows.length ? `
       <details class="cd-src"><summary>识别记录（${recRows.length} 行 · read-file 15 字段）</summary>
         <div class="src-table"><table class="orb-tbl"><thead><tr><th>原始编码</th><th>名称</th><th class="orb-num">数量</th><th class="orb-num">单价</th><th>税率</th><th class="orb-num">原报金额</th><th>定位</th></tr></thead><tbody>
         ${recRows.map((r) => `<tr${srcFile && r["出处-文件"] === srcFile && r["出处-定位"] === srcLoc ? ' style="background:var(--orb-p50);box-shadow:inset 3px 0 0 var(--orb-primary)"' : ""}>
@@ -1655,7 +1676,7 @@
 
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-new-open],[data-demo-open],[data-aiq],.mclose,#btnManual,#aiSend,#aiClear,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#btnDemoProj,#mConfirmOk,#cdClose,#cdSubmit");
+    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-new-open],[data-demo-open],[data-aiq],.mclose,#btnManual,#aiSend,#aiClear,#btnAI,#btnOnlyFlag,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#btnDemoProj,#mConfirmOk,#cdClose,#cdSubmit");
     if (!t) return;
     const ds = t.dataset;
     if (ds.newOpen) return openNewProjModal();
@@ -1663,6 +1684,7 @@
     if (ds.demoOpen) { state.cur = null; state.proj = null; state.view = "project"; state.tab = 2; state.drawerKey = null; switchView(); return; }
     if (t.id === "aiSend") return sendAI($("#aiInput").value.trim());
     if (t.id === "aiClear") { state.aiMsgs = []; return renderAI(); }
+    if (t.id === "btnOnlyFlag") { state.onlyFlagged = !state.onlyFlagged; renderLedger(); return; }
     if (t.id === "btnNewProj") return openNewProjModal();
     if (t.id === "mNewOk") return submitNewProject();
     if (t.id === "btnQuickUpload") return getFileInput().click();
