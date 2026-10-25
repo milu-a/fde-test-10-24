@@ -189,24 +189,25 @@
 
   <!-- 页签⑤ 导出交付 -->
   <section class="tabpane" id="paneExport">
-    <div class="exp-grid">
-      <div class="card orb-card panel">
-        <h3><span class="petrol-line"></span>导出自检（不阻断 · 如实呈现）</h3>
-        <p class="hint">未确认事项将写入「需补充事项」表随包交付——交付的不是"完美台账"，是可信的证据链。</p>
+    <div class="card orb-card export-card">
+      <header class="export-heading"><h2>导出交付</h2><p>选择版本，下载本轮比选台账。</p></header>
+      <div class="export-action">
+        <div class="export-version"><label for="exportVersion">台账版本</label><select class="orb-inp" id="exportVersion"></select></div>
+        <button class="orb-btn orb-btn-primary" id="btnExport">下载交付包</button>
+      </div>
+      <p class="export-meta" id="exportMeta"></p>
+      <section class="export-section" aria-labelledby="exportIssuesTitle">
+        <h3 id="exportIssuesTitle">待补充事项</h3>
         <div id="expChk"></div>
-        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="orb-btn orb-btn-primary" id="btnExport">导出五表台账 + 异常报告</button>
-          <button class="orb-btn orb-btn-neutral" id="btnDeliver">标记为已交付评审</button>
-        </div>
-        <div class="orb-alert orb-alert-info split-note">导出文件单独保存，报价原件保持只读。补录、修改与应用事件均写入「操作记录」表。</div>
-      </div>
-      <div class="card orb-card panel">
-        <h3><span class="petrol-line"></span>按版本下载台账</h3>
-        <p class="hint">选择已生成的版本，下载包含对比表、需补充事项、操作记录、报价明细及资格材料清单的 Excel 文件。各版本独立保留。</p>
-        <div id="stageDl"></div>
-        <h3 style="margin:14px 0 6px"><span class="petrol-line"></span>导出历史</h3>
-        <div id="expHistory"></div>
-      </div>
+      </section>
+      <section class="export-section" aria-labelledby="exportHistoryTitle">
+        <div class="export-section-head"><h3 id="exportHistoryTitle">导出记录 <span>本次会话</span></h3><button class="orb-btn orb-btn-sm orb-btn-neutral" id="btnDeliver">标记为已交付评审</button></div>
+        <div id="expHistory" aria-live="polite"></div>
+      </section>
+      <details class="export-help"><summary>交付包说明</summary><div>
+        <p>一个 Excel 文件，包含对比表、需补充事项、操作记录、报价明细和资格材料清单。</p>
+        <p>各版本独立保留，报价原件保持只读。已应用的澄清与修改记录随台账交付；未确认的事件不会改写所选版本。</p>
+      </div></details>
     </div>
   </section>
 </main>

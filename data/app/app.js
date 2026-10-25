@@ -871,59 +871,72 @@
   }
 
   /* ---------------- 页签⑤ 导出交付 ---------------- */
+  let exportBusy = false;
+  function exportContext() {
+    const pb = state.proj;
+    const stages = state.cur ? Object.keys(pb?.ledgers || {}) : Object.keys(STAGE_SHORT).filter(k => state.unlocked[k]);
+    const selected = state.cur ? state.projStage : state.stage;
+    return { pb, stages, stage: stages.includes(selected) ? selected : stages[0], projectId: state.cur?.id || "example" };
+  }
   function renderExport() {
-    if (state.cur) {
-      const pb = state.proj;
-      const stages = Object.keys(pb && pb.ledgers ? pb.ledgers : {});
-      const can = stages.length > 0;
-      $("#btnExport").disabled = !can;
-      $("#btnDeliver").disabled = !can;
-      if (!can) {
-        $("#expChk").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">尚无可导出的台账：先到①收集箱上传供应商报价原件，识别匹配并生成台账后，此处进行导出自检并产出五表 xlsx。</p>`;
-        $("#stageDl").innerHTML = "";
-        $("#expHistory").innerHTML = `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。</p>`;
-        return;
-      }
-      const stage = stages.includes(state.projStage) ? state.projStage : stages[stages.length - 1];
-      const pendEv = pb.counts.pending_events, um = pb.counts.unmatched;
-      $("#expChk").innerHTML = `
-        <div class="chk"><span class="ic ${pendEv + um ? "warn" : "ok"}">${pendEv + um ? "!" : "✓"}</span><span>待确认事件 <b>${pendEv}</b> 条 · M4 未匹配 <b>${um}</b> 项（如实随「需补充事项」表交付，不阻断）</span></div>
-        <div class="chk"><span class="ic ok">✓</span><span>M4 匹配 <b>${pb.match_report.matched}</b> 条 · 供应商 <b>${pb.suppliers_order.length}</b> 家 · 金额计算零LLM、全程 Decimal</span></div>
-        <div class="chk"><span class="ic warn">!</span><span>资格要求清单未挂载：导出的「资格材料清单」表为空（挂载后自动补齐）</span></div>
-        <div class="chk"><span class="ic ok">✓</span><span>口径已统一：含税单口径 · 折算依据逐行随附 · 列示金额只作比对基准 · 系统不推荐中标</span></div>`;
-      $("#stageDl").innerHTML = stages.map((k, i) => `
-        <div class="sheet-card orb-card"><span class="no">${i + 1}</span>
-          <div style="flex:1"><b>${STAGE_LABEL[k]}</b><span>对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单${k === "v1_clarified" ? " · 含已应用事件重算" : ""}</span></div>
-          <a class="orb-btn orb-btn-sm orb-btn-neutral" href="/api/projects/${encodeURIComponent(state.cur.id)}/export?version=${k}" download>下载 xlsx</a></div>`).join("");
-      $("#expHistory").innerHTML = state.exports.length ? state.exports.map((x) => `
-        <div class="chk"><span class="ic ok">✓</span><span>${esc(x)}</span></div>`).join("")
-        : `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。导出即由 M2 生成器在${state.boot.template_found ? "企业模板副本上" : "模板表头新建"}写出 5-sheet xlsx（backend/out/）。</p>`;
+    const { pb, stages, stage, projectId } = exportContext();
+    const can = stages.length > 0;
+    const history = state.exports.filter(x => x.projectId === projectId);
+    $("#exportVersion").innerHTML = can ? stages.map(k => `<option value="${k}" ${k === stage ? "selected" : ""}>${esc(STAGE_LABEL[k] || STAGE_SHORT[k])}</option>`).join("") : '<option>暂无可用版本</option>';
+    $("#exportVersion").disabled = !can || exportBusy;
+    $("#btnExport").disabled = !can || exportBusy;
+    $("#btnExport").textContent = exportBusy ? "正在生成…" : "下载交付包";
+    const delivered = ["已交付评审", "已定标", "已归档"].includes(state.cur?.status);
+    $("#btnDeliver").hidden = !can || (!history.length && !delivered);
+    $("#btnDeliver").disabled = delivered || !state.cur;
+    $("#btnDeliver").textContent = delivered ? "已交付评审" : "标记为已交付评审";
+    $("#expHistory").innerHTML = history.length ? history.map(x => `<div class="export-record"><span><b>${esc(x.label)}</b><span>Excel · 已发起下载</span></span><time>${esc(x.time)}</time></div>`).join("") : '<p class="export-muted">暂无记录</p>';
+    if (!can) {
+      $("#exportMeta").textContent = "上传报价并生成台账后，即可下载。";
+      $("#expChk").innerHTML = '<p class="export-muted">暂无可检查的台账。<button class="orb-link" data-tab="1">前往收集箱 →</button></p>';
       return;
     }
-    $("#btnExport").disabled = false;
-    $("#btnDeliver").disabled = false;
-    const checks = state.boot.checks;
-    const okN = checks.filter((c) => c.ok).length;
-    const issues = state.issues[state.stage] || [];
-    const open = issues.filter((i) => !i.closed).length;
-    $("#expChk").innerHTML = `
-      <div class="chk"><span class="ic ${open ? "warn" : "ok"}">${open ? "!" : "✓"}</span><span>未关闭事项 <b>${open}</b> 项 / 已澄清关闭 <b>${issues.length - open}</b> 项（如实写入「需补充事项」表，不阻断交付）</span></div>
-      <div class="chk"><span class="ic ok">✓</span><span>引擎回归自检 <b>${okN}/${checks.length}</b> 项通过（底稿数字核对）　<button class="orb-btn orb-btn-sm orb-btn-neutral" id="btnChecks" style="height:22px;padding:0 8px;font-size:11px">明细</button></span></div>
-      <div class="chk"><span class="ic ok">✓</span><span>口径已统一：双口径并列 · 折算依据逐行随附 · 列示金额只作比对基准</span></div>
-      <div class="chk"><span class="ic warn">!</span><span>资格待补 2 项：乙检测资质未提交；丁资质 2026-08-31 到期未续（保持未关闭，由评审判断）</span></div>
-      <div id="checkList" class="hidden" style="max-height:190px;overflow:auto;border:1px solid var(--line-2);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--ink-3);margin-top:6px">
-        ${checks.map((c) => `<div>${c.ok ? "✓" : "✗"} ${esc(c.msg)}</div>`).join("")}
-      </div>`;
-    $("#btnChecks").onclick = () => $("#checkList").classList.toggle("hidden");
-
-    $("#expHistory").innerHTML = state.exports.length ? state.exports.map((x) => `
-      <div class="chk"><span class="ic ok">✓</span><span>${esc(x)}</span></div>`).join("")
-      : `<p style="font-size:12.5px;color:var(--ink-4)">尚未导出。导出即由 M2 生成器在${state.boot.template_found ? "企业模板副本上" : "模板表头新建"}写出 5-sheet xlsx（backend/out/）。</p>`;
-
-    $("#stageDl").innerHTML = Object.keys(STAGE_SHORT).map((k, i) => `
-      <div class="sheet-card orb-card"><span class="no">${i + 1}</span>
-        <div style="flex:1"><b>${STAGE_SHORT[k]}</b><span>对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单${k === "v2" ? " · 附较V1差异行" : ""}${k === "v1_raw" ? " · 异常线索最全" : ""}</span></div>
-        <a class="orb-btn orb-btn-sm orb-btn-neutral" href="/api/export/${k}" download>下载 xlsx</a></div>`).join("");
+    const suppliers = state.cur ? pb.suppliers_order.length : SUPS.length;
+    $("#exportMeta").textContent = `${suppliers} 家供应商${state.cur ? ` · ${pb.match_report.matched} 条已匹配` : ""} · 包含 5 张工作表`;
+    let summary, detail;
+    if (state.cur) {
+      const um = pb.match_report.unmatched || [];
+      const pending = pb.counts.pending_events;
+      summary = [um.length ? `${um.length} 项报价待匹配` : "", pending ? `${pending} 条事件待确认` : "", "资格材料未配置"].filter(Boolean).join(" · ");
+      detail = `<ul>${um.map(u => `<li><b>${esc(u.vendor)} · ${esc(u.name || "未命名报价项")}</b><span>${esc(String(u.basis || "").replace(/^M4/, ""))}${u.file ? ` · ${esc(u.file)}` : ""}</span></li>`).join("")}${pending ? `<li>${pending} 条事件尚未确认，不计入所选版本。<button class="orb-link" data-tab="3">查看事件 →</button></li>` : ""}<li>资格材料清单为空，交付前请另行核对。</li></ul><button class="orb-link" data-tab="3">查看台账异常与澄清 →</button>`;
+    } else {
+      const issues = state.issues[stage] || [];
+      const open = issues.filter(i => !i.closed).length;
+      summary = `${open} 项待核查 · 资格材料待补充`;
+      detail = '<p>乙检测资质未提交；丁资质到期未续，请核对后交付。</p><button class="orb-link" data-tab="3">查看异常与澄清 →</button>';
+    }
+    $("#expChk").innerHTML = `<details class="export-issues"><summary><span class="export-issue-summary">${summary.split(" · ").map(part => `<span>${esc(part)}</span>`).join("")}</span><span class="export-detail-label">查看详情</span></summary><div class="export-issue-body">${detail}</div></details><p class="export-muted export-issue-note">待补充事项不阻止下载，请结合台账中的「需补充事项」核对。</p>`;
+  }
+  async function downloadExport() {
+    const { stages, stage, projectId } = exportContext();
+    if (!stages.length || exportBusy) return;
+    const label = STAGE_LABEL[stage] || STAGE_SHORT[stage];
+    const url = state.cur ? `/api/projects/${encodeURIComponent(projectId)}/export?version=${stage}` : `/api/export/${stage}`;
+    exportBusy = true;
+    renderExport();
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`服务返回 ${response.status}，请重试`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${projectId}_${label}_比选台账.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      state.exports.unshift({ projectId, label, time: new Date().toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" }) });
+      toast(`${esc(label)} 交付包已生成，已发起下载。`);
+    } catch (e) {
+      toast(`下载失败：${esc(e instanceof TypeError ? "无法连接服务，请稍后重试" : e.message)}`);
+    } finally {
+      exportBusy = false;
+      renderExport();
+    }
   }
 
   /* ---------------- 弹层 / 登记 / AI 位 ---------------- */
@@ -1129,7 +1142,7 @@
       const j = await r.json();
       if (!r.ok) { toast(`流转失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
-      toast(`项目状态已流转：<b>已交付评审</b>（状态机 §6.1，已写入项目档案）。`);
+      toast(`项目状态已流转：<b>已交付评审</b>，已保存至项目档案。`);
     } catch (e) {
       toast(`流转失败：${esc(e.message)}`);
     }
@@ -1172,21 +1185,7 @@
       return toast("事件 AI 提取为演示入口，尚未接入模型服务。请使用人工登记添加事件。");
     }
     if (t.id === "mRegOk") return submitRegister();
-    if (t.id === "btnExport") {
-      if (state.cur) {
-        const stage = STAGE_LABEL[state.projStage] ? state.projStage : "v1_raw";
-        state.exports.unshift(`${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · 导出 ${STAGE_LABEL[stage]} 台账 xlsx（backend/out/）`);
-        renderExport();
-        const a = document.createElement("a");
-        a.href = `/api/projects/${encodeURIComponent(state.cur.id)}/export?version=${stage}`;
-        a.download = ""; a.click();
-        return toast("M2 生成器已按当前版本写出 5-sheet 台账 xlsx（企业模板副本填写），开始下载。");
-      }
-      state.exports.unshift(`${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · 导出 ${STAGE_SHORT[state.stage]} 台账 xlsx（backend/out/）`);
-      renderExport();
-      const a = document.createElement("a"); a.href = `/api/export/${state.stage}`; a.download = ""; a.click();
-      return toast("M2 生成器已写出 5-sheet 台账 xlsx（企业模板副本填写），开始下载。");
-    }
+    if (t.id === "btnExport") return downloadExport();
     if (ds.open) { state.view = "project"; switchView(); return; }
     if (ds.proj) { const p = state.projects.find((x) => x.id === ds.proj); if (p) openProject(p); return; }
     if (ds.ver) { if (state.cur) { state.projStage = ds.ver; } else { state.stage = ds.ver; } renderAll(); if (state.drawerKey) openCellDrawer(state.drawerKey); return; }
@@ -1215,6 +1214,7 @@
   });
   document.querySelectorAll(".overlay").forEach((o) => o.addEventListener("click", (e) => { if (e.target === o) hideModals(); }));
   document.addEventListener("change", (ev) => {
+    if (ev.target.id === "exportVersion") { if (state.cur) state.projStage = ev.target.value; else state.stage = ev.target.value; renderCtx(); renderExport(); }
     if (ev.target.id === "diffA") { state.diffA = ev.target.value; renderVersions(); }
     if (ev.target.id === "diffB") { state.diffB = ev.target.value; renderVersions(); }
   });
