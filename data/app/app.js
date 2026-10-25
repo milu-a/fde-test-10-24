@@ -107,12 +107,15 @@
       `<button data-pf="${esc(f)}" class="${state.projFilter === f ? "active" : ""}">${esc(f)}</button>`).join("");
     $("#projGrid").innerHTML = list.length ? list.map((p) => {
       const sm = p.summary || {};
+      const cmp = sm.compare;
+      const stageName = cmp ? (cmp.stage === "v1_clarified" ? "V1 澄清后" : "V1 原始") : "";
       return `
       <div class="proj-card orb-card orb-card-raised" data-proj="${esc(p.id)}">
         <div class="row1"><span class="pid">${esc(p.id)}</span><span class="pname">${esc(p.name)}</span>
           <span class="spacer" style="flex:1"></span><span class="badge ${STATUS_CLS[p.status] || ""}">${esc(p.status)}</span></div>
         <div class="meta"><span>负责人 <b>${esc(p.owner)}</b></span><span>报价 <b>${sm.suppliers || 0} 家</b></span>
-          <span>台账 <b>${sm.has_ledger ? "V1 原始" : "—"}</b></span><span>待办事件 <b>${sm.pending_events || 0}</b> 条</span></div>
+          <span>台账 <b>${sm.has_ledger ? stageName || "V1 原始" : "—"}</b></span><span>待办事件 <b>${sm.pending_events || 0}</b> 条</span></div>
+        ${cmp ? `<div class="cmp-line">比价（${stageName}）：最低 <b>${fmt(cmp.lo)} ${esc(cmp.lo_sup)}</b> · 最高 ${fmt(cmp.hi)} ${esc(cmp.hi_sup)} · 价差 <b>${fmt(cmp.spread)}</b>${cmp.rate != null ? `（${cmp.rate}%）` : ""}${cmp.excluded ? ` · ${cmp.excluded} 家未计入` : ""}</div>` : ""}
         <div class="act">${esc(p.created_at)} · ${esc(p.owner)} 创建项目 · 点击进入工作区</div>
       </div>`;
     }).join("")

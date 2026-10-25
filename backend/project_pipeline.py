@@ -254,12 +254,43 @@ def assemble_suppliers(rec_results: list):
 
 
 def project_summary(proj: dict) -> dict:
-    """首页卡片摘要：报价供应商数、台账是否已生成、待确认事件数（轻量装配，不算全台账）。"""
+    """首页卡片摘要：报价供应商数、台账是否已生成、待确认事件数，
+    以及最新版本比价结论（最低/最高/价差——仅可折算合计，不当 0；算不出就缺省，不阻断首页装配）。"""
     recs = [load_recognition_result(f.get("id")) for f in proj.get("files", [])]
     recs = [r for r in recs if r]
     _, suppliers, _, _, _ = assemble_suppliers(recs)
     pending = sum(1 for e in proj.get("events", []) if e.get("status") == "待确认")
-    return {"suppliers": len(suppliers), "has_ledger": len(suppliers) > 0, "pending_events": pending}
+    out = {"suppliers": len(suppliers), "has_ledger": len(suppliers) > 0, "pending_events": pending}
+    if not out["has_ledger"]:
+        return out
+    try:
+        _cat, _sup, _tax, sup_order, _rep, _ev, _am, led_raw, led_clar = _project_ledgers(proj)
+        led = led_clar if led_clar is not None else led_raw
+        if led is None:
+            return out
+        stage = "v1_clarified" if led is led_clar else "v1_raw"
+        totals = ledger_to_dict(led).get("totals", {})
+        vals = {}
+        for sup in sup_order:
+            hs = (totals.get(sup) or {}).get("hs")
+            v = float(hs) if hs is not None else None
+            if v is not None and v > 0:
+                vals[sup] = v
+        if len(vals) >= 2:
+            lo_sup = min(vals, key=vals.get)
+            hi_sup = max(vals, key=vals.get)
+            lo, hi = vals[lo_sup], vals[hi_sup]
+            out["compare"] = {
+                "stage": stage,
+                "lo_sup": lo_sup, "lo": round(lo, 2),
+                "hi_sup": hi_sup, "hi": round(hi, 2),
+                "spread": round(hi - lo, 2),
+                "rate": round((hi - lo) / lo * 100, 1) if lo > 0 else None,
+                "excluded": len(sup_order) - len(vals),
+            }
+    except Exception:
+        pass
+    return out
 
 
 # ---------------------------------------------------------------- 事件（澄清/变更）
