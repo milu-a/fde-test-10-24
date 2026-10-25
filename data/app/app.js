@@ -529,6 +529,29 @@
   function histStCls(st) {
     return st === "已应用" || st === "已生效" ? "petrol" : (st === "待确认" ? "warn" : "");
   }
+  /* 依据文件控件：从已归档原件中选择 + 定位手填——「无依据不改数」的机制化：
+     依据必须指向真实存在的原件，杜绝手打文件名造成证据链断头；上传新文件仍只走
+     ①收集箱（单一入口），表单里只做引用。files 缺省（示例环境无项目文件列表）回退手填。 */
+  function evidenceFieldsHTML(files, idPrefix, defaultFile) {
+    if (!files || !files.length) {
+      return `<input class="orb-inp" id="${idPrefix}Basis" placeholder="如 供应商澄清纪要.pdf · 第2行">`;
+    }
+    const opts = files.map((f) =>
+      `<option value="${esc(f.file)}"${f.file === defaultFile ? " selected" : ""}>${esc(f.file)}${f.vendor ? ` · ${esc(f.vendor)}方候选` : ""}</option>`).join("");
+    return `<div class="ev-file-row">
+      <select class="orb-inp" id="${idPrefix}File" title="依据必须指向已归档原件——新文件请先经①收集箱归档"><option value="">— 选择原件 —</option>${opts}</select>
+      <input class="orb-inp" id="${idPrefix}Loc" placeholder="定位：第2行 / 页3 / B5" aria-label="依据定位"></div>`;
+  }
+  /* 组装依据字符串（与台账 p0.source 同构："文件 · 定位"）；未选原件返回空串 */
+  function evidenceValue(idPrefix) {
+    const sel = document.getElementById(idPrefix + "File");
+    if (!sel) return (document.getElementById(idPrefix + "Basis").value || "").trim();
+    const f = sel.value;
+    if (!f) return "";
+    const loc = (document.getElementById(idPrefix + "Loc").value || "").trim();
+    return loc ? `${f} · ${loc}` : f;
+  }
+
   function openCellDrawer(key) {
     const [itemId, sup] = key.split("|");
     const proj = !!state.cur;
@@ -598,7 +621,7 @@
             <option value="DEDUPE">剔除重复行（无需新值）</option>
           </select></div>
         <div class="fld"><label>新值 <i>*</i></label><input class="orb-inp" id="cdVal" placeholder="如 6% / 460 / 18 / 12×460"></div>
-        <div class="fld"><label>依据文件 + 定位 <i>*无依据不改数</i></label><input class="orb-inp" id="cdEvidence" placeholder="如 供应商澄清纪要.pdf · 第2行"></div>
+        <div class="fld"><label>依据文件 + 定位 <i>*无依据不改数 · 从已归档原件选择</i></label>${evidenceFieldsHTML(pb.files, "cdEv", String(p0 && p0.source || "").split(" · ")[0] || "")}</div>
         <button class="orb-btn orb-btn-primary" id="cdSubmit">提交修改 → 待确认队列</button>
         <p class="orb-meta" style="margin-top:8px">提交即登记事件并留痕（下方历史可见）；在③事件与澄清确认应用后引擎重算、生成新版本。</p>
       </div>` : `
@@ -629,10 +652,10 @@
   async function submitDrawerEdit() {
     if (!state.cur || !state.drawerKey) return;
     const [op, field] = $("#cdOp").value.split(":");
-    const nv = $("#cdVal").value.trim(), basis = $("#cdEvidence").value.trim();
-    if (op !== "DEDUPE" && !nv) { toast("登记失败：新值必填。"); return; }
-    if (!basis) { toast("登记失败：依据必填——无依据不改数。"); return; }
+    const nv = $("#cdVal").value.trim(), basis = evidenceValue("cdEv");
     const [itemId, sup] = state.drawerKey.split("|");
+    if (op !== "DEDUPE" && !nv) { toast("登记失败：新值必填。"); return; }
+    if (!basis) { toast("登记失败：请选择依据原件并填写定位——无依据不改数。"); return; }
     let payload = null, newVal = nv;
     if (op === "DECLARE_TAX") {
       const m = nv.match(/^([\d.]+)\s*%$/);
@@ -1229,8 +1252,7 @@
             <input class="orb-inp" id="regNew" placeholder="税率 6%（或 0.06）；单价 460.00；数量 18；单位确认填 4"></div>
           <div class="fld"><label>补录行 数量×单价（ADD_LINE 时生效，可空）</label>
             <input class="orb-inp" id="regLine" placeholder="如 12×460；留空则新值按整项金额"></div>
-          <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数</i></label>
-            <input class="orb-inp" id="regBasis" placeholder="如 供应商澄清纪要.pdf · 第2行"></div>
+          <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数 · 从已归档原件选择</i></label>${evidenceFieldsHTML(pb.files, "regEv", "")}</div>
           <div class="fld full"><label>备注（可空）</label><input class="orb-inp" id="regNote" placeholder="补充说明，随事件留痕"></div>
         </div>`;
       showModal("mReg");
@@ -1242,7 +1264,7 @@
           <select class="orb-inp" id="regType"><option>SET_FIELD 更正字段</option><option>ADD_LINE 补录行</option><option>DECLARE_TAX 申报税率</option><option>DEDUPE 剔重</option><option>RESOLVE_UNIT 单位确认</option></select></div>
         <div class="fld"><label>影响对象（供应商 · 清单项 · 字段）<i>*</i></label><input class="orb-inp" id="regTarget" placeholder="如：乙 · C09 · 单价"></div>
         <div class="fld full"><label>变更内容（原值 → 新值）<i>*</i></label><input class="orb-inp" id="regDetail" placeholder="如：（缺价）→ 460.00 元/根 × 12 根"></div>
-        <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数</i></label><input class="orb-inp" id="regBasis" placeholder="如：02 报价澄清/供应商澄清纪要.txt · CLARIFY-01"></div>
+        <div class="fld full"><label>依据文件 + 条款定位 <i>*必填：无依据不改数</i></label>${evidenceFieldsHTML(null, "regEv")}</div>
       </div>`;
     showModal("mReg");
   }
@@ -1250,9 +1272,9 @@
     if (state.cur) {
       const op = $("#regType").value, sup = $("#regSup").value, item = $("#regItem").value,
             field = $("#regField").value, nv = $("#regNew").value.trim(),
-            line = $("#regLine").value.trim(), basis = $("#regBasis").value.trim(),
+            line = $("#regLine").value.trim(), basis = evidenceValue("regEv"),
             note = $("#regNote").value.trim();
-      if (!nv || !basis) { toast("登记失败：新值与依据均为必填——无依据不改数。"); return; }
+      if (!nv || !basis) { toast("登记失败：新值与依据均为必填——无依据不改数（依据须指向已归档原件）。"); return; }
       let payload = null, newVal = nv;
       if (op === "DECLARE_TAX") {
         const m = nv.match(/^([\d.]+)\s*%$/);
@@ -1284,7 +1306,7 @@
       }
       return;
     }
-    const tg = $("#regTarget").value.trim(), dt = $("#regDetail").value.trim(), ba = $("#regBasis").value.trim();
+    const tg = $("#regTarget").value.trim(), dt = $("#regDetail").value.trim(), ba = evidenceValue("regEv");
     if (!tg || !dt || !ba) { toast("登记失败：影响对象、变更内容与依据均为必填——无依据不改数。"); return; }
     state.manual.push({ id: "EVT-M" + (state.manual.length + 1), type: $("#regType").value, target: tg, detail: dt, basis: ba, time: "2026-09-20 10:00", op: "商务人员A" });
     hideModals(); renderEvents(); renderCtx();
