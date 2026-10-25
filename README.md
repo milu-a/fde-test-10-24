@@ -3,7 +3,7 @@
 山南勘测分包比选场景（FDE 企业真题 04「报价各说各话，工程分包怎么比？」）的工作台：
 
 - **M1 税率与计算引擎 + M2 台账生成器 + M4 归一匹配 + M5 区间校验**：来自 `git@github.com:milu-a/fde-test-10-24.git` 的 `m1-engine` 分支（同步至 commit `64b3f4e`，源码复制于 `backend/`），金额计算零 LLM、全程 Decimal、**75 个单测** + 13 项 GC-017 全量回归全过；
-- **read-file 多格式识别**：来自同一仓库的 `read-file` 分支（`backend/read-file/`）：Excel（openpyxl 纯代码）/ PDF 文字层（pdfplumber 纯代码）/ 扫描件·截图（可插拔引擎链：智谱视觉 API 双协议 → 本地 PaddleOCR → 预转录库），"认字靠模型、整理靠代码"，任何一环失败不硬猜；
+- **read-file 多格式识别**：来自同一仓库的 `read-file` 分支（`backend/read-file/`）：Excel（openpyxl 纯代码）/ PDF 文字层（pdfplumber 纯代码）/ 扫描件·截图（可插拔引擎链：智谱视觉 API 双协议 → 本地 PaddleOCR → 预转录库），"认字靠模型、整理靠代码"，任何一环失败不硬猜；识别 KEY 只读环境变量 `ZHIPU_API_KEY`（未配置启动即报错，不再支持 api_config.json）；
 - **前端界面**：orbcafe-ui 组件体系（vendored `orbcafe-ui@3.1.8` 官方 ORBIS 设计系统 CSS：`data/vendor/orbcafe-ui/`，含 `orbis.css` + ORBIS 品牌主题包 + Montserrat/SAP-icons 字体，Community License 文件随附）；前端 markup 直接使用库内 `orb-*` 组件类（orb-tbl/orb-btn/orb-card/orb-chip/orb-inp/orb-snack 等），库内没有的（台账冻结列/状态格、品牌横幅、时间轴等）按同规格补写；`data/app/style.css` 只保留布局与状态钩子胶水；历史界面规格见 `../比选工作台-前端界面设计文档.md`；
 - **AI 触点**：扫描件/截图识别走 read-file 引擎链（第三方 API，按量/订阅），事件提取按第三方接口设计（界面可切离线降级为人工路径），本机不部署模型；M4 语义匹配预留 `propose()` 插座（本地 LLM 原位替换，接口不变）。
 
@@ -11,6 +11,7 @@
 
 ```bash
 cd app
+copy .env.example .env      # 首次：把 ZHIPU_API_KEY 占位符换成你的智谱APIKEY（.env 不入库）
 python server.py            # 默认 http://127.0.0.1:8080（被占用自动 +1）
 # 可选：python server.py --port 9000
 ```
@@ -32,7 +33,7 @@ app/
 │   ├── read-file/           ← 多格式识别（源自 read-file 分支，未改逻辑）：
 │   │                          reader.py 统一路由 / code_readers 纯代码通道 /
 │   │                          model_readers+ocr_engines 可插拔引擎链（API→Paddle→预转录库）
-│   │                          transcripts/ = 案例文件识别缓存（演示离线重放）；api_config.json 不入库
+│   │                          transcripts/ = 案例文件识别缓存（演示离线重放）；识别 KEY 只读环境变量 ZHIPU_API_KEY（api_config.json 已退役）
 │   ├── matching/            ← M4 归一匹配：三层匹配器（精确/同义词表/语义提案插座）+ 确认回灌词库飞轮
 │   ├── report/              ← M2：write_ledger → 5-sheet 台账 xlsx（供应商列数据驱动、模板列自动补插）
 │   ├── data/                ← GC-017 结构化兜底数据 + synonyms.json（M4 已确认异名词库）
@@ -100,7 +101,7 @@ python run_m4.py --confirm "原始名" C03 "依据"           # M4 人工确认�
 ### read-file 识别模块（backend/read-file/，源自 read-file 分支）
 
 - 统一入口 `read_file(path)` → `{channel, engine, confidence, records[], note, vendor_guess}`；记录为 15 字段中文结构（行类型/原始编码/原始分项名称/单位/数量/单价/单价口径/税率/税率依据/原报金额/置信度/待人工标记/出处-文件/出处-定位/备注）；
-- 引擎链：智谱视觉 API（anthropic 协议 glm-5.3-flash 主力 + v4 协议 glm-4v-flash 备用）→ 本地 PaddleOCR（未装自动跳过）→ 预转录库 transcripts/*.json（按文件名匹配的识别缓存，演示离线重放）；配置 KEY 用环境变量 `ZHIPU_API_KEY` 或 `backend/read-file/api_config.json`（该文件不入库，模板见 api_config.example.json）；
+- 引擎链：智谱视觉 API（anthropic 协议 glm-5.3-flash 主力 + v4 协议 glm-4v-flash 备用）→ 本地 PaddleOCR（未装自动跳过）→ 预转录库 transcripts/*.json（按文件名匹配的识别缓存，演示离线重放）；配置 KEY 只读环境变量 `ZHIPU_API_KEY`（**未配置时服务启动即报错退出**，不再支持 api_config.json 文件）；
 - 红线与上游一致：缺失值（税率/单价）只标记待确认不默认补写；任何一环失败转 needs_model 明确提示不硬猜；云端 API 仅用于脱敏演示数据，真实报价生产环境改本地 PaddleEngine。
 
 ## 字段名（前端以引擎字段为准）
@@ -126,6 +127,17 @@ python run_m4.py --confirm "原始名" C03 "依据"           # M4 人工确认�
 3. **③ 事件与澄清**：需补充事项（QB 编号、10 类、闭环状态）+ CLARIFY-01 / CHANGE-01 事件卡 → 差异预演 → 确认应用 → 台账切换版本（V1 澄清后 / V2 变更后）；
 4. **④ 版本与差异**：三版本时间轴（留痕 3/11/15 条）、任意两版本差异表、操作记录（审计日志）；
 5. **⑤ 导出交付（DD-UI 蒸馏版）**：一个版本下拉 + 一颗「下载交付包」主按钮（版本切换与 ctxbar 胶囊共享同一全局版本上下文）+ 一行证据（N 家供应商 · N 条已匹配 · 5 张工作表）+ 待补充事项折叠为一行摘要（查看详情展开，边界句「系统不推荐中标」常驻可见）+ 导出记录（含「标记为已交付评审」单向流转确认）+ 交付包说明收纳（5 表结构 / 三版互不覆盖 / 输出与原件物理分离）。主题为 ORBIS CI 2026 覆盖层 `ci-theme.css`（官方 tokens 适配，不改 vendored 文件）；旗标底线为 CI 粉（--orb-err），粉字一律加深 20% 保 AA 对比；首页零项目时呈现「从第一个项目开始」三步引导（证据链叙事 + 演示入口），AI 演示开关为 role=switch 且文案明确「仅切换事件 AI，不影响识别引擎」。
+
+6. **⑥ 智慧报表**：AI 对话分析当前选中项目（OMPHPanel 对话面板 · SSE 流式回答 · Markdown 表格/列表 + chart JSON 块渲染为 orb 配色 SVG 图表）——LLM 经环境变量接入，未配置时页签整体离线并提示原因。
+
+## 智慧报表（页签⑥ · LLM 对话分析，全部经环境变量接入）
+
+- 功能：AI 读取**当前选中项目**的全量工作台数据（统一清单、多版本台账含未税/含税与行级旗标、事件、审计留痕），对话总结数据、对比供应商、解释异常；
+- 图表约定：LLM 在回答中输出 chart JSON 代码块（`{"type":"bar|line","title","unit","data":[{"label","value"}]}`，≤12 项），前端解析为 SVG 图表；
+- 环境变量（改后重启 `python server.py` 生效；KEY 一律不进代码/文件）：`AI_REPORT_API_KEY`（必填，缺失则页签⑥整体离线）、`AI_REPORT_API_BASE`（OpenAI 兼容端点，默认智谱 `https://open.bigmodel.cn/api/paas/v4`）、`AI_REPORT_MODEL`（默认 `glm-4.6`）；
+- 红线写入系统提示词：未知值不当 0、异常只提示不改写、**不推荐中标/不评分/不排名**；数据上下文超 60KB 自动截断；会话历史仅存前端内存（按项目隔离，不落盘）；
+- 本地链路测试：`python testdata/mock_llm.py`（8010 端口 mock LLM）+ `set AI_REPORT_API_KEY=test AI_REPORT_API_BASE=http://127.0.0.1:8010/v4` 后启动即可全流程演练；
+- API：`GET /api/ai/status`（配置状态与缺失原因）· `POST /api/projects/{id}/ai-report`（`{"question","history"}`，SSE 帧 `data:{"delta"|"error"|"done"}`）。
 
 ## 红线（界面行为约束）
 

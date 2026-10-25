@@ -27,6 +27,7 @@ openpyxl（M2 写 xlsx），可离线内网运行。
 """
 import argparse
 import json
+import os
 import sys
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -39,6 +40,38 @@ sys.path.insert(0, str(BACKEND))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+
+def _load_env_file(path: Path) -> None:
+    """把 .env（若存在）注入 os.environ：只补缺、不覆盖真实环境变量。
+
+    维护约定：复制 .env.example 为同目录 .env 后填写（.gitignore 已排除，
+    KEY 绝不入库）。支持 KEY=VALUE / export KEY=VALUE、单双引号值、
+    未加引号值的行尾 # 注释；注释单独成行。"""
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+        key, eq, val = line.partition("=")
+        key = key.strip()
+        if not eq or not key:
+            continue
+        val = val.strip()
+        if val[:1] in ("\"", "'") and len(val) >= 2:
+            q = val[0]                       # 带引号：取成对引号内内容（引号后可跟行尾注释）
+            end = val.find(q, 1)
+            val = val[1:end] if end > 0 else val[1:]
+        else:                                # 未加引号：去掉行尾注释
+            val = val.split(" #", 1)[0].strip()
+        if key not in os.environ and val:
+            os.environ[key] = val
+
+
+_load_env_file(ROOT / ".env")                   # 先于一切 env 读取（识别 KEY / 智慧报表）
+
 from engine import load_all, ledger_to_dict        # noqa: E402
 from engine.money import D                          # noqa: E402
 from report import write_ledger                     # noqa: E402
@@ -48,8 +81,12 @@ from gen_workbooks import _rate_map, _invoice_status  # noqa: E402  上游 M5 �
 # read-file 多格式识别模块（源自 fde-test-10-24 @ read-file 分支，扁平 import）
 READFILE = BACKEND / "read-file"
 sys.path.insert(0, str(READFILE))
-import reader as file_reader          # noqa: E402
-import ocr_engines as ocr_engines_mod  # noqa: E402
+try:
+    import reader as file_reader          # noqa: E402
+    import ocr_engines as ocr_engines_mod  # noqa: E402
+except RuntimeError as exc:               # 识别 KEY 未配置：启动即报错退出，不静默降级
+    print(f"启动失败：{exc}")
+    sys.exit(1)
 
 TEMPLATE = ROOT.parent / "04 报价各说各话，工程分包怎么比？" / "01 原始报价与清单" / "比选输出模板.xlsx"
 OUT = BACKEND / "out"
@@ -63,6 +100,97 @@ SUPS = list(QUOTE_DATA["suppliers"].keys())
 # 运行时项目存储与「识别 → 匹配 → 引擎计算」管线在 project_pipeline.py：
 # 本文件只做路由；GC-017 为内置案例编号，新建项目从 GC-018 续号。
 import project_pipeline as pp  # noqa: E402  运行时项目存储 + 识别记录装配引擎台账
+
+# ---------------------------------------------------------------- 智慧报表（AI 对话分析）
+# LLM 接入全部走环境变量（不写入代码/文件）：
+#   AI_REPORT_API_KEY   必填，缺失则智慧报表整体离线（按钮置灰）
+#   AI_REPORT_API_BASE  OpenAI 兼容端点，默认智谱 https://open.bigmodel.cn/api/paas/v4
+#   AI_REPORT_MODEL     模型名，默认 glm-4.6
+# 修改 env 后需重启 python server.py 生效。
+import urllib.request  # noqa: E402
+import urllib.error  # noqa: E402
+
+AI_REPORT = {
+    "key": os.environ.get("AI_REPORT_API_KEY", "").strip(),
+    "base": os.environ.get("AI_REPORT_API_BASE", "https://open.bigmodel.cn/api/paas/v4").strip().rstrip("/"),
+    "model": os.environ.get("AI_REPORT_MODEL", "glm-4.6").strip(),
+}
+AI_CTX_MAX = 60_000            # 注入上下文字符数上限（超出截断，防 token 爆炸）
+AI_HISTORY_MAX = 10            # 随请求携带的对话历史条数上限
+
+AI_SYSTEM_TEMPLATE = """你是「分包比选工作台」的智慧报表分析助手，服务商务人员的报价归集与比选核对。下面是当前项目 {proj_label} 的全部工作台数据（JSON）：
+
+```json
+{context}
+```
+
+你的职责：基于以上数据回答用户的提问——读取数据、总结数据、对比供应商、解释异常线索。金额与供应商判断必须来自数据本身，不得编造。
+
+红线（必须遵守）：
+- 未知值不当 0：「未报」「税率未给」是状态，不是 0，也不可折算含税；
+- 异常只提示不改写：旗标是线索不是结论；
+- 系统不推荐中标、不评分、不排名：不做任何倾向性商务建议；
+- 引用金额时注明口径（未税/含税）与供应商。
+
+输出约定：
+- 用简体中文；结构化回答（小结/要点/表格）；
+- 需要图表时，在回答中输出如下 JSON 代码块（前端会渲染为图表，data 不超过 12 项）：
+```chart
+{{"type": "bar 或 line", "title": "图表标题", "unit": "元", "data": [{{"label": "供应商或分项", "value": 123.45}}]}}
+```"""
+
+def ai_status_payload():
+    masked = (AI_REPORT["key"][:4] + "…" + AI_REPORT["key"][-4:]) if len(AI_REPORT["key"]) >= 8 else ("已设置" if AI_REPORT["key"] else "")
+    return {
+        "available": bool(AI_REPORT["key"]),
+        "base": AI_REPORT["base"],
+        "model": AI_REPORT["model"],
+        "key_masked": masked,
+        "env_keys": ["AI_REPORT_API_KEY", "AI_REPORT_API_BASE", "AI_REPORT_MODEL"],
+        "reason": "" if AI_REPORT["key"] else "未设置环境变量 AI_REPORT_API_KEY——设置后重启 python server.py 启用智慧报表",
+    }
+
+def _ai_project_context(proj) -> str:
+    """项目工作台全量数据 → 紧凑 JSON 文本（LLM 上下文）。"""
+    board = pp.build_board(proj)
+    stages = board.get("ledgers") or {}
+    ledgers_out = {}
+    for stg, led in stages.items():
+        rows_out = {}
+        for item_id, per_sup in (led.get("rows") or {}).items():
+            rows_out[item_id] = {
+                sup: [{
+                    "qty": c.get("qty"), "ws": c.get("ws"), "tax": c.get("tax"), "hs": c.get("hs"),
+                    "stated": c.get("stated_amount"), "status": c.get("status"),
+                    "flags": c.get("flags") or [], "basis": c.get("basis") or "",
+                } for c in (lines or [])]
+                for sup, lines in (per_sup or {}).items()
+            }
+        ledgers_out[stg] = {"totals": led.get("totals") or {}, "rows": rows_out,
+                            "audit_n": len(led.get("audit") or [])}
+    ctx = {
+        "project": board.get("project"),
+        "catalog": board.get("catalog"),
+        "suppliers_order": board.get("suppliers_order"),
+        "ledgers": ledgers_out,
+        "events": board.get("events"),
+        "match_report": board.get("match_report"),
+        "counts": board.get("counts"),
+        "files": [{"file": f.get("file"), "vendor": f.get("vendor"), "channel_desc": f.get("channel_desc")} for f in (board.get("files") or [])],
+    }
+    text = json.dumps(ctx, ensure_ascii=False, default=str)
+    if len(text) > AI_CTX_MAX:
+        text = text[:AI_CTX_MAX] + "…（数据过长已截断）"
+    return text
+
+def _ai_build_messages(question, history, ctx_text, proj_label):
+    msgs = [{"role": "system", "content": AI_SYSTEM_TEMPLATE.format(proj_label=proj_label, context=ctx_text)}]
+    for m in (history or [])[-AI_HISTORY_MAX:]:
+        role, content = str(m.get("role") or ""), str(m.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            msgs.append({"role": role, "content": content[:8000]})
+    msgs.append({"role": "user", "content": question})
+    return msgs
 
 STAGES = {
     "v1_raw":       "V1 原始报价（澄清前）",
@@ -287,6 +415,12 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=str(ROOT), **kw)
 
+    def end_headers(self):
+        # 本地开发工具：静态页与接口一律禁缓存，避免浏览器用旧 CSS/JS 渲染
+        # （_json/_file 已显式带 no-store，重复的 Cache-Control 指令按最强语义生效）
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        super().end_headers()
+
     def log_message(self, fmt, *args):  # 静默访问日志，只保留启动与错误信息
         pass
 
@@ -312,6 +446,80 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
+
+    # ---------------------------------------------------- 智慧报表：LLM SSE 代理
+    def _ai_report_stream(self, pid: str):
+        """POST /api/projects/{id}/ai-report　body = {"question", "history": [...]}。
+        上游 OpenAI 兼容接口流式转发为 SSE：data:{"delta"| "error"| "done"}。"""
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return self._json({"error": "请求体不是合法的 UTF-8 JSON"}, 400)
+        question = str(body.get("question") or "").strip()
+        if not question:
+            return self._json({"error": "提问内容不能为空"}, 400)
+        if len(question) > 4000:
+            return self._json({"error": "提问过长（上限 4000 字）"}, 400)
+        if not AI_REPORT["key"]:
+            return self._json({"error": "未设置环境变量 AI_REPORT_API_KEY，智慧报表不可用"}, 503)
+        proj = pp.find_project(pp.load_projects(), pid)
+        if proj is None:
+            return self._json({"error": f"项目 {pid} 不存在"}, 404)
+        proj_label = f"{proj['id']} · {proj['name']}"
+        messages = _ai_build_messages(question, body.get("history"), _ai_project_context(proj), proj_label)
+
+        payload = json.dumps({
+            "model": AI_REPORT["model"],
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.3,
+        }, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            AI_REPORT["base"] + "/chat/completions", data=payload, method="POST",
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {AI_REPORT['key']}",
+                     "Accept": "text/event-stream"})
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+        def emit(obj):
+            self.wfile.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
+            self.wfile.flush()
+
+        try:
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                emit({"open": True, "model": AI_REPORT["model"]})
+                for raw in resp:
+                    line = raw.decode("utf-8", "replace").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    delta = ((chunk.get("choices") or [{}])[0].get("delta") or {})
+                    text = delta.get("content") or ""
+                    if text:
+                        emit({"delta": text})
+            emit({"done": True})
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", "replace")[:500]
+            except Exception:
+                pass
+            emit({"error": f"模型接口返回 HTTP {exc.code}：{detail or exc.reason}"})
+            emit({"done": True})
+        except Exception as exc:
+            emit({"error": f"模型接口调用失败：{exc}"})
+            emit({"done": True})
 
     # ------------------------------------------------------------ routing
     def _project_event_route(self, pid: str, action: str, eid):
@@ -354,6 +562,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._file(export_xlsx(stage))
             if path == "/api/recognition":
                 return self._json({"engines": recognition_engines(), "results": recognition_list()})
+            if path == "/api/ai/status":
+                return self._json(ai_status_payload())
             if path == "/api/projects":
                 projects = [dict(p, summary=pp.project_summary(p)) for p in pp.load_projects()]
                 return self._json({"projects": projects, "next_id": pp.next_project_id(projects)})
@@ -459,6 +669,8 @@ class Handler(SimpleHTTPRequestHandler):
                         return self._json({"error": f"项目 {pid} 不存在"}, 404)
                     except ValueError as exc:
                         return self._json({"error": str(exc)}, 400)
+                if sub == "ai-report":
+                    return self._ai_report_stream(pid)
                 return self._json({"error": "unknown api"}, 404)
             if path != "/api/recognize":
                 return self._json({"error": "unknown api"}, 404)

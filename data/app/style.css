@@ -630,6 +630,37 @@ body.splitting .cell-drawer { transition: none; }
   .export-section-head { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
 
+/* ============ ⑥智慧报表（orb-omph 基座在 vendored 库内，此处为 ai/md 增补 · 源自主线吸收） ============ */
+.ai-panel { flex: 1 1 auto; min-height: 0; border-radius: var(--orb-shell-radius); }
+.ai-head-copy { min-width: 0; }
+.ai-empty { display: flex; flex-direction: column; gap: 8px; padding: 24px 8px; }
+.ai-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.ai-panel .markdown-body { overflow-wrap: anywhere; }
+.ai-panel .markdown-body .md-h { margin: 14px 0 6px; color: var(--orb-fg-strong); }
+.ai-panel .markdown-body .md-p { margin: 6px 0; }
+.ai-panel .markdown-body ul, .ai-panel .markdown-body ol { margin: 6px 0; padding-left: 22px; }
+.ai-panel .markdown-body .md-code {
+  margin: 8px 0; padding: 10px 12px; overflow: auto;
+  border: 1px solid var(--orb-border); border-radius: var(--orb-r);
+  background: var(--orb-surface); font: 400 12px/1.55 ui-monospace, Consolas, monospace;
+}
+.ai-panel .markdown-body .md-table-wrap { overflow: auto; margin: 8px 0; border: 1px solid var(--orb-border); border-radius: var(--orb-r); }
+.ai-panel .markdown-body .md-table { width: 100%; border-collapse: collapse; font: 400 12.5px/1.5 var(--orb-font); }
+.ai-panel .markdown-body .md-table th { background: var(--orb-surface); font-weight: 600; }
+.ai-panel .markdown-body .md-table th, .ai-panel .markdown-body .md-table td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); text-align: left; white-space: nowrap; }
+.ai-chart { margin: 10px 0; border: 1px solid var(--orb-border); border-radius: var(--orb-r); background: var(--orb-canvas); padding: 8px; }
+.ai-chart svg { display: block; width: 100%; height: auto; }
+.ai-chart-title { font: 600 13px var(--orb-font); fill: var(--orb-fg-strong); }
+.ai-chart-unit { font: 500 11px var(--orb-font); fill: var(--orb-muted); }
+.ai-chart-grid { stroke: var(--orb-chart-grid); stroke-width: 1; }
+.ai-chart-tick { font: 500 11px var(--orb-font); fill: var(--orb-muted); font-variant-numeric: tabular-nums; }
+.ai-chart-lbl { font: 500 12px var(--orb-font); fill: var(--orb-fg); }
+.ai-chart-val { font: 600 11px var(--orb-font); fill: var(--orb-primary); font-variant-numeric: tabular-nums; }
+.ai-chart-bar { fill: var(--orb-primary); }
+.ai-chart-line { fill: none; stroke: var(--orb-primary); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ai-chart-dot { fill: var(--orb-primary); }
+.ai-chart-err { padding: 10px 12px; border: 1px dashed var(--orb-border); border-radius: var(--orb-r); color: var(--orb-muted); font: 500 12px/1.5 var(--orb-font); }
+
 /* ============ 弹层（orb-overlay 视觉 + 应用层显隐/层级胶水） ============ */
 .overlay { z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow: auto; }
 /* 遮罩压暗加强：库 .orb-overlay 为 45% 深底，弹层打开时再加深并轻微模糊背景，让弹层聚焦层次明确 */
@@ -740,7 +771,7 @@ body.splitting .cell-drawer { transition: none; }
 .lfchart .lfbar0 { fill: color-mix(in oklch, var(--orb-primary) 40%, white); }
 .lfchart .lfbar1 { fill: color-mix(in oklch, var(--orb-primary) 70%, white); }
 .lfchart .lfbar2 { fill: var(--orb-primary); }
-.lfchart .lfc-grow { transform-box: fill-box; transform-origin: center bottom; animation: lfc-pop .6s cubic-bezier(.2, .7, .3, 1.2) both; }
+.lfchart .lfc-grow { transform-box: fill-box; transform-origin: center bottom; animation: lfc-pop .6s cubic-bezier(.22, 1, .36, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .lfchart .lfc-grow { animation: none !important; }
 }

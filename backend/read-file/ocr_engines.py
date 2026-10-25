@@ -17,27 +17,29 @@
   None                                    本引擎处理不了该文件
 """
 import json
+import os
 import re
 from pathlib import Path
 
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
-API_CONFIG = Path(__file__).parent / "api_config.json"
 
 
 def load_api_config() -> dict:
-    """API引擎配置：优先环境变量 ZHIPU_API_KEY，其次 api_config.json。KEY不进代码。"""
-    cfg = {"provider": "zhipu", "model": "glm-4v-flash",
-           "base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-           "api_key": ""}
+    """API引擎配置：只读环境变量 ZHIPU_API_KEY，未配置直接抛错（fail fast）。
+
+    KEY 一律不进代码、不落文件。引擎链在进程启动时构建，缺 KEY 会在
+    python server.py 启动阶段即报错暴露，而不是上传图片时才静默降级。"""
     import os
-    if os.environ.get("ZHIPU_API_KEY"):
-        cfg["api_key"] = os.environ["ZHIPU_API_KEY"]
-    if API_CONFIG.exists():
-        try:
-            cfg.update({k: v for k, v in json.loads(API_CONFIG.read_text(encoding="utf-8")).items() if v})
-        except Exception:
-            pass
-    return cfg
+    key = (os.environ.get("ZHIPU_API_KEY") or "").strip()
+    if not key or "粘贴" in key or "PASTE" in key.upper():
+        # "粘贴"防护：防止把 .env.example 的占位符原样复制进 .env 后误启动
+        raise RuntimeError(
+            "未配置环境变量 ZHIPU_API_KEY：云端视觉识别引擎无法初始化。"
+            "请复制 app/.env.example 为 app/.env 并填入智谱 API KEY（或自行 set ZHIPU_API_KEY），"
+            "然后重新启动 python server.py。")
+    return {"provider": "zhipu", "model": "glm-5.3-flash", "protocol": "anthropic",
+            "base_url": "https://open.bigmodel.cn/api/anthropic/v1/messages",
+            "api_key": key}
 
 
 class ApiEngine:
@@ -54,12 +56,11 @@ class ApiEngine:
         return f"云端视觉模型API（{self.cfg.get('model')}·{self.cfg.get('protocol', 'v4')}）"
 
     def available(self) -> bool:
-        key = self.cfg.get("api_key", "")
-        return bool(key) and "粘贴" not in key and "PASTE" not in key.upper()
+        return bool(self.cfg.get("api_key", ""))
 
     @property
     def install_hint(self):
-        return "未配置API KEY：请在 04-2 读取模块/api_config.json 填入智谱API KEY（或设环境变量 ZHIPU_API_KEY）"
+        return "云端视觉引擎不可用：未配置环境变量 ZHIPU_API_KEY（设置后重启 python server.py）"
 
     _PROMPT = (
         "你是工程报价单识别助手。请把图片内容精确转录为JSON（只输出JSON，不要解释，不要markdown代码块）。"
@@ -288,19 +289,24 @@ class LibraryEngine:
 
 
 def _build_default_engines():
-    """引擎链：主API（套餐通道glm-5.3-flash）→ 备用API（免费glm-4v-flash）→ 本地Paddle → 预转录库。"""
-    cfg = load_api_config()
-    key = cfg.get("api_key", "")
-    engines = []
-    if key and "粘贴" not in key:
-        engines.append(ApiEngine({  # 主力：编程套餐通道（订阅额度识图）
+    """引擎链：主API（套餐通道glm-5.3-flash）→ 备用API（免费glm-4v-flash）→ 本地Paddle → 预转录库。
+
+    KEY 只读环境变量 ZHIPU_API_KEY；缺失时云端引擎仍在链上但 available()=False（UI 显示 ○ + install_hint），服务照常启动——不静默（启动警告）、不阻断离线演示。"""
+    key = (os.environ.get("ZHIPU_API_KEY") or "").strip()
+    if not key:
+        print("警告：未配置环境变量 ZHIPU_API_KEY——云端视觉识别引擎不可用（○），"
+              "扫描件/截图将转人工或失败；Excel/PDF 文字层与预转录重放不受影响。"
+              "配置方法：复制 app/.env.example 为 app/.env 并填入智谱 API KEY，然后重启 python server.py。")
+    engines = [
+        ApiEngine({  # 主力：编程套餐通道（订阅额度识图）
             "provider": "zhipu", "model": "glm-5.3-flash", "protocol": "anthropic",
             "base_url": "https://open.bigmodel.cn/api/anthropic/v1/messages",
-            "api_key": key}))
-        engines.append(ApiEngine({  # 备用：开放平台免费视觉档
+            "api_key": key}),
+        ApiEngine({  # 备用：开放平台免费视觉档
             "provider": "zhipu", "model": "glm-4v-flash", "protocol": "v4",
             "base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-            "api_key": key}))
+            "api_key": key}),
+    ]
     engines.append(PaddleEngine())
     engines.append(LibraryEngine())
     return engines

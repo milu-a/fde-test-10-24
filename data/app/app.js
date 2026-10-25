@@ -55,7 +55,8 @@
     drawerKey: null,                 // 当前打开的单元格抽屉（"itemId|supplier"）
     drawerTrigger: null,             // 打开抽屉前的焦点元素（关闭时归还焦点）
     lastModalTrigger: null,          // 打开弹层前的焦点元素（关闭时归还焦点）
-    lfUserCollapsed: null            // 图表折叠：null=按视口高度自动（<900px 折叠），true/false=用户手动指定
+    lfUserCollapsed: null,            // 图表折叠：null=按视口高度自动（<900px 折叠），true/false=用户手动指定
+    aiStatus: null, aiMsgs: [], aiBusy: false   // 智慧报表：AI 服务状态 + 会话（内存，不落盘）
   };
 
   /* ---------------- 基础工具 ---------------- */
@@ -1070,7 +1071,8 @@
     const nStage = c.stages.length, moved = nStage > 1;
     const fromStage = c.stages[0], curStage = c.curStage;
     const fromLabel = c.label(fromStage), curLabel = c.label(curStage);
-    const hsOf = (k, s) => { const t = (c.ledMap[k].totals[s]) || {}; return t.hs == null ? null : Number(t.hs); };
+    const ws = state.amountMode === "ws", modeName = ws ? "未税" : "含税";
+    const hsOf = (k, s) => { const t = (c.ledMap[k].totals[s]) || {}; const v = ws ? t.ws : t.hs; return v == null ? null : Number(v); };
     /* 每组的柱：[{k, v}]，仅收可折算阶段；全部不可折算 → 空数组 */
     const groups = c.sups.map((s) => ({
       s,
@@ -1087,8 +1089,8 @@
     const barCls = (j, n) => n <= 1 ? 2 : j === n - 1 ? 2 : n === 3 && j === 1 ? 1 : 0;
     const svg = lfBlock(host, {
       title: moved ? `版本推进，${c.sups.length} 家合计各走了多远` : `${c.sups.length} 家合计基线，事件应用后此处呈现两版对比`,
-      sub: `图例：一组一家 · 柱色浅→深 = 版本由旧到新 · 柱高 ∝ 含税合计（从 0 起量，四组共用一把尺）· 组下标注较基线变动 · 柱可悬停${moved ? "" : " · 应用事件生成新版本后出现对比柱"}`,
-      src: `GROUPED BARS · 来源：引擎台账 · ${fromLabel} → ${curLabel} · 含税口径 · 点击图重播`,
+      sub: `图例：一组一家 · 柱色浅→深 = 版本由旧到新 · 柱高 ∝ ${modeName}合计（从 0 起量，四组共用一把尺）· 组下标注较基线变动 · 柱可悬停${moved ? "" : " · 应用事件生成新版本后出现对比柱"}`,
+      src: `GROUPED BARS · 来源：引擎台账 · ${fromLabel} → ${curLabel} · ${modeName}口径 · 点击图重播`,
       h: H
     });
     lfReveal(svg, (s) => {
@@ -1108,11 +1110,11 @@
           const x = gx - total / 2 + j * (barW + gap);
           const y = mapY(b.v), hgt = plotBase - y;
           const rect = lfGrow(lfEl(s, "rect", { x, y, width: barW, height: Math.max(hgt, 1), rx: 3, class: `lfc-grow lfbar${barCls(j, k)}` }), .25 + i * .07 + j * .09);
-          lfTip(rect, `${g.s} — ${b.label} 含税合计 ${fmt(b.v)}`);
-          /* 柱顶数值：当前版本加粗；与前一根同值的旧柱跳过标签，避免叠印 */
-          const prev = j > 0 ? g.bars[j - 1] : null;
-          const dup = prev && Math.abs(prev.v - b.v) < .005;
-          if (!dup) {
+          lfTip(rect, `${g.s} — ${b.label} ${modeName}合计 ${fmt(b.v)}`);
+          /* 柱顶数值：当前版本加粗；与后一根同值的旧柱跳过标签，让加粗当前值呈现 */
+          const next = j < k - 1 ? g.bars[j + 1] : null;
+          const dupNext = next && Math.abs(next.v - b.v) < .005;
+          if (!dupNext) {
             const cur = j === k - 1;
             lfFade(lfTxt(s, { x: x + barW / 2, y: y - 6, "font-size": cur ? 10 : 7.5, "font-weight": cur ? 800 : 600,
               fill: cur ? lfInk : lfMut, "text-anchor": "middle", class: "num" }, fmt(b.v)), .45 + i * .07 + j * .09);
@@ -1130,7 +1132,7 @@
         }
       });
       lfFade(lfTxt(s, { x: 16, y: H - 10, "font-size": 7.5, "font-weight": 600, fill: lfMut }, `${fromLabel}（基线）`), .9);
-      lfFade(lfTxt(s, { x: W - 16, y: H - 10, "font-size": 7.5, "font-weight": 600, fill: lfMut, "text-anchor": "end" }, `${curLabel} · 含税合计（¥）`), .9);
+      lfFade(lfTxt(s, { x: W - 16, y: H - 10, "font-size": 7.5, "font-weight": 600, fill: lfMut, "text-anchor": "end" }, `${curLabel} · ${modeName}合计（¥）`), .9);
     });
   }
 
@@ -1219,6 +1221,217 @@
       <p class="export-issue-note">待补充事项不阻止交付 · 列示金额只作比对基准 · 系统不推荐中标。</p>`;
     $("#expHistory").innerHTML = state.exports.length ? state.exports.map((x) => `<div class="export-record">${esc(x)}</div>`).join("")
       : `<p class="export-muted">尚未导出。导出即由 M2 生成器在${state.boot.template_found ? "企业模板副本上" : "模板表头新建"}写出 5-sheet xlsx（backend/out/）。</p>`;
+  }
+
+/* ---------------- 页签⑥ 智慧报表（OMPHPanel · AI 对话分析项目数据） ---------------- */
+  const AI_HISTORY_MAX = 8;
+  function aiMd(text) {
+    /* 轻量 markdown → HTML（先转义防注入）：```chart 块渲染为 SVG 图表 */
+    const charts = [];
+    text = String(text ?? "").replace(/```chart\s*([\s\S]*?)```/g, (m, body) => {
+      charts.push(body);
+      return `\u0000CHART${charts.length - 1}\u0000`;
+    });
+    const codes = [];
+    text = text.replace(/```([\w-]*)\s*([\s\S]*?)```/g, (m, lang, body) => {
+      codes.push({ lang, body });
+      return `\u0000CODE${codes.length - 1}\u0000`;
+    });
+    const inline = (s) => esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
+    const lines = text.split("\n");
+    let html = "", list = null, table = null;
+    const closeAll = () => {
+      if (list) { html += `</${list}>`; list = null; }
+      if (table) { html += "</tbody></table></div>"; table = null; }
+    };
+    for (const raw of lines) {
+      const line = String(raw).trimEnd();
+      const t = line.trim();
+      if (!t) { closeAll(); continue; }
+      const tm = t.match(/^\|(.+)\|$/);
+      if (tm) {
+        const cells = tm[1].split("|").map((c) => c.trim());
+        if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;   // 表头分隔行
+        if (!table) {
+          closeAll();
+          table = { head: cells };
+          html += '<div class="md-table-wrap"><table class="md-table"><thead><tr>' +
+            cells.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>";
+        } else {
+          html += "<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>";
+        }
+        continue;
+      }
+      if (table) { html += "</tbody></table></div>"; table = null; }
+      const hm = t.match(/^(#{1,4})\s+(.*)$/);
+      if (hm) { closeAll(); html += `<h${hm[1].length + 2} class="md-h">${inline(hm[2])}</h${hm[1].length + 2}>`; continue; }
+      const ul = t.match(/^[-*]\s+(.*)$/);
+      if (ul) { if (list !== "ul") { closeAll(); html += "<ul>"; list = "ul"; } html += `<li>${inline(ul[1])}</li>`; continue; }
+      const ol = t.match(/^\d+[.、]\s+(.*)$/);
+      if (ol) { if (list !== "ol") { closeAll(); html += "<ol>"; list = "ol"; } html += `<li>${inline(ol[1])}</li>`; continue; }
+      closeAll();
+      html += `<p class="md-p">${inline(t)}</p>`;
+    }
+    closeAll();
+    html = html.replace(/\u0000CODE(\d+)\u0000/g, (m, i) =>
+      `<pre class="md-code"><code>${esc(codes[+i].body)}</code></pre>`);
+    html = html.replace(/\u0000CHART(\d+)\u0000/g, (m, i) => aiChart(charts[+i]));
+    return html;
+  }
+  function aiChart(body) {
+    let spec = null;
+    try { spec = JSON.parse(body); } catch (e) { /* 落到下方无效提示 */ }
+    const data = Array.isArray(spec && spec.data) ? spec.data.filter((d) => d && isFinite(Number(d.value))) : [];
+    if (!spec || !data.length) return '<div class="ai-chart-err">（图表数据无效，已跳过渲染）</div>';
+    const type = spec.type === "line" ? "line" : "bar";
+    const W = 480, H = 240, padL = 86, padB = 46, padT = 36, padR = 14;
+    const iw = W - padL - padR, ih = H - padT - padB;
+    const vals = data.map((d) => Number(d.value));
+    const vmax = Math.max(...vals, 0), vmin = Math.min(...vals, 0);
+    const span = (vmax - vmin) || 1;
+    const y = (v) => padT + ih - ((v - vmin) / span) * ih;
+    const step = iw / data.length;
+    let svg = `<div class="ai-chart"><svg viewBox="0 0 ${W} ${H}" role="img">`;
+    svg += `<text x="${W - padR}" y="20" text-anchor="end" class="ai-chart-title">${esc(String(spec.title || ""))}</text>`;
+    svg += `<text x="6" y="20" text-anchor="start" class="ai-chart-unit">${esc(String(spec.unit || ""))}</text>`;
+    for (let i = 0; i <= 4; i++) {
+      const v = vmin + (span * i) / 4, yy = y(v);
+      svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" class="ai-chart-grid"/>` +
+        `<text x="${padL - 6}" y="${yy + 4}" text-anchor="end" class="ai-chart-tick">${fmt(v)}</text>`;
+    }
+    if (type === "bar") {
+      const bw = Math.min(step * 0.62, 56);
+      data.forEach((d, i) => {
+        const x = padL + step * i + (step - bw) / 2, v = Number(d.value);
+        const top = Math.min(y(v), y(0)), hgt = Math.abs(y(v) - y(0)) || 1;
+        svg += `<rect x="${x}" y="${top}" width="${bw}" height="${hgt}" rx="4" class="ai-chart-bar"/>` +
+          `<text x="${x + bw / 2}" y="${top - 5}" text-anchor="middle" class="ai-chart-val">${fmt(v)}</text>` +
+          `<text x="${x + bw / 2}" y="${H - padB + 16}" text-anchor="middle" class="ai-chart-lbl">${esc(String(d.label))}</text>`;
+      });
+    } else {
+      const pts = data.map((d, i) => [padL + step * i + step / 2, y(Number(d.value))]);
+      svg += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" class="ai-chart-line"/>`;
+      pts.forEach((p, i) => {
+        svg += `<circle cx="${p[0]}" cy="${p[1]}" r="4" class="ai-chart-dot"/>` +
+          `<text x="${p[0]}" y="${p[1] - 9}" text-anchor="middle" class="ai-chart-val">${fmt(vals[i])}</text>` +
+          `<text x="${p[0]}" y="${H - padB + 16}" text-anchor="middle" class="ai-chart-lbl">${esc(String(data[i].label))}</text>`;
+      });
+    }
+    svg += "</svg></div>";
+    return svg;
+  }
+  function aiScrollBottom() {
+    const s = $("#aiScroll");
+    if (s) s.scrollTop = s.scrollHeight;
+  }
+  function aiTurnHtml(m, streaming) {
+    const time = `<span class="orb-omph-actions-time">${esc(m.time || "")}</span>`;
+    if (m.role === "user") {
+      return `<div class="orb-omph-turn"><div class="orb-omph-user"><div class="orb-omph-user-bubble">${esc(m.content)}</div>
+        <div class="orb-omph-user-meta">${time}</div></div></div>`;
+    }
+    if (m.role === "error") {
+      return `<div class="orb-omph-turn"><div class="orb-omph-failure" data-severity="error">${esc(m.content)}</div>
+        <div class="orb-omph-turn-actions">${time}</div></div>`;
+    }
+    return `<div class="orb-omph-turn"><div class="orb-omph-assistant"><div class="markdown-body">${aiMd(m.content)}${streaming ? '<span class="orb-omph-caret"></span>' : ""}</div></div>
+      ${streaming ? "" : `<div class="orb-omph-turn-actions">${time}</div>`}</div>`;
+  }
+  function renderAI() {
+    if (!state.aiStatus) { loadAiStatus(); return; }
+    const st = state.aiStatus;
+    $("#aiProjLabel").textContent = state.cur ? `${state.cur.id} · ${state.cur.name}` : "";
+    const ok = st.available;
+    $("#aiDot").style.background = ok ? "" : "var(--orb-err)";
+    $("#aiStatus").textContent = ok
+      ? `已连接 ${st.model} · 已注入当前项目全部工作台数据`
+      : (st.reason || "AI 服务不可用");
+    $("#aiInput").disabled = !ok;
+    $("#aiInput").placeholder = ok
+      ? "向 AI 提问当前项目的数据，如：总结各供应商报价、哪些分项有异常…（Enter 发送 / Shift+Enter 换行）"
+      : (st.reason || "AI 服务不可用");
+    $("#aiSend").disabled = !ok || state.aiBusy;
+    const col = $("#aiColumn");
+    const msgs = state.aiMsgs;
+    col.innerHTML = msgs.length
+      ? msgs.map((m, i) => aiTurnHtml(m, state.aiBusy && i === msgs.length - 1 && m.role === "assistant" && m.streaming)).join("")
+      : `<div class="ai-empty">
+          <p class="orb-omph-title">让 AI 读取并总结当前项目的台账数据</p>
+          <p class="orb-meta">AI 已获得本项目的统一清单、全版本台账（含未税/含税与异常旗标）、事件与审计留痕。试试：</p>
+          <div class="ai-suggest">
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="总结各供应商当前版本的报价合计，并指出异常较多的供应商">总结各供应商报价与异常</button>
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="对比各供应商含税合计，用柱状图展示">含税合计柱状图</button>
+            <button class="orb-btn orb-btn-sm orb-btn-neutral" data-aiq="列出当前台账里的全部异常旗标，按供应商归类并说明影响">异常旗标清单</button>
+          </div>
+        </div>`;
+    aiScrollBottom();
+  }
+  async function loadAiStatus() {
+    try {
+      state.aiStatus = await getJSON("/api/ai/status");
+    } catch (e) {
+      state.aiStatus = { available: false, reason: "无法获取 AI 服务状态：" + e.message };
+    }
+    renderAI();
+  }
+  async function sendAI(question) {
+    if (!state.cur || state.aiBusy || !question) return;
+    if (!state.aiStatus || !state.aiStatus.available) { renderAI(); return; }
+    state.aiMsgs.push({ role: "user", content: question, time: new Date().toLocaleTimeString("zh-CN", { hour12: false }) });
+    const reply = { role: "assistant", content: "", streaming: true, time: "" };
+    state.aiMsgs.push(reply);
+    state.aiBusy = true;
+    renderAI();
+    const history = state.aiMsgs.slice(0, -2)
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-AI_HISTORY_MAX)
+      .map((m) => ({ role: m.role, content: m.content }));
+    try {
+      const r = await fetch(`/api/projects/${encodeURIComponent(state.cur.id)}/ai-report`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || "HTTP " + r.status);
+      }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          if (!frame.startsWith("data:")) continue;
+          let evt;
+          try { evt = JSON.parse(frame.slice(5).trim()); } catch (e) { continue; }
+          if (evt.delta) {
+            reply.content += evt.delta;
+            renderAI();
+          } else if (evt.error) {
+            reply.role = "error"; reply.content = evt.error; reply.streaming = false;
+            renderAI();
+          } else if (evt.done) {
+            reply.streaming = false;
+            reply.time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+            renderAI();
+          }
+        }
+      }
+    } catch (e) {
+      reply.role = "error";
+      reply.content = "请求失败：" + e.message + "——请确认已运行 python server.py";
+      reply.streaming = false;
+    } finally {
+      state.aiBusy = false;
+      reply.streaming = false;
+      renderAI();
+    }
   }
 
   /* ---------------- 弹层 / 登记 / AI 位 ---------------- */
@@ -1380,6 +1593,7 @@
     state.view = "project";
     state.tab = 2;                          // 打开项目即落在主工作区②台账（hash 路由恢复时会被显式覆盖）
     state.drawerKey = null;
+    state.aiMsgs = [];                      // 智慧报表会话按项目隔离（切项目即清空）
     state.navMonth = monthKey(p) || null;   // 侧栏自动展开该项目所在时间组
     switchView();
     loadProjectBoard();
@@ -1441,11 +1655,14 @@
 
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-new-open],[data-demo-open],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#btnDemoProj,#mConfirmOk,#cdClose,#cdSubmit");
+    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],[data-new-open],[data-demo-open],[data-aiq],.mclose,#btnManual,#aiSend,#aiClear,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#btnDemoProj,#mConfirmOk,#cdClose,#cdSubmit");
     if (!t) return;
     const ds = t.dataset;
     if (ds.newOpen) return openNewProjModal();
+    if (ds.aiq) return sendAI(ds.aiq);
     if (ds.demoOpen) { state.cur = null; state.proj = null; state.view = "project"; state.tab = 2; state.drawerKey = null; switchView(); return; }
+    if (t.id === "aiSend") return sendAI($("#aiInput").value.trim());
+    if (t.id === "aiClear") { state.aiMsgs = []; return renderAI(); }
     if (t.id === "btnNewProj") return openNewProjModal();
     if (t.id === "mNewOk") return submitNewProject();
     if (t.id === "btnQuickUpload") return getFileInput().click();
@@ -1494,7 +1711,7 @@
     }
     if (t.id === "cdClose") return closeCellDrawer();
     if (t.id === "cdSubmit") return submitDrawerEdit();
-    if (ds.amt) { state.amountMode = ds.amt; renderLedger(); writeHash(); return; }
+    if (ds.amt) { state.amountMode = ds.amt; renderLedger(); lfVerChart(); writeHash(); return; }
     if (ds.src) return openCellDrawer(ds.src);
     if (ds.qok) {
       const q = state.queue.find((x) => x.id === ds.qok);
@@ -1536,6 +1753,11 @@
      （左右 = 同行相邻供应商列，上下 = 同供应商相邻清单行）；Esc 自顶向下关闭
      （先弹层后抽屉）；Tab 在打开的弹层内循环，焦点不逃逸到背景。 */
   document.addEventListener("keydown", (ev) => {
+    if (ev.target.id === "aiInput" && ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      const q = $("#aiInput").value.trim();
+      if (q) { $("#aiInput").value = ""; sendAI(q); }
+    }
     const k = ev.key;
     if (k === "Escape") {
       if (document.querySelector(".overlay.show")) { hideModals(); return; }
@@ -1564,6 +1786,11 @@
     if (target) target.focus();
   });
   document.addEventListener("keydown", (ev) => {
+    if (ev.target.id === "aiInput" && ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      const q = $("#aiInput").value.trim();
+      if (q) { $("#aiInput").value = ""; sendAI(q); }
+    }
     if (ev.key !== "Tab") return;
     const ov = document.querySelector(".overlay.show");
     if (!ov) return;
@@ -1652,9 +1879,9 @@
   function renderTabs() {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", +b.dataset.tab === state.tab));
     document.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("show"));
-    $("#" + { 1: "paneInbox", 2: "paneLedger", 3: "paneEvents", 4: "paneVersions", 5: "paneExport" }[state.tab]).classList.add("show");
+    $("#" + { 1: "paneInbox", 2: "paneLedger", 3: "paneEvents", 4: "paneVersions", 5: "paneExport", 6: "paneAI" }[state.tab]).classList.add("show");
     renderCtx();
-    [renderInbox, renderLedger, renderEvents, renderVersions, renderExport][state.tab - 1]();
+    [renderInbox, renderLedger, renderEvents, renderVersions, renderExport, renderAI][state.tab - 1]();
     writeHash();
   }
   function renderAll() { renderCtx(); renderTabs(); }
@@ -1689,7 +1916,7 @@
     lastHash = h;
     if (location.hash !== h) history.replaceState(null, "", h);
   }
-  const clampTab = (n) => (n >= 1 && n <= 5 ? n : 2);
+  const clampTab = (n) => (n >= 1 && n <= 6 ? n : 2);
   function parseHash() {
     const [path, qs] = (location.hash || "#/").slice(1).split("?");
     /* 浏览器写入 hash 时会把中文 percent-encode（如 戊 → %E6%88%8A），读取段统一解码 */
