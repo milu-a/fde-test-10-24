@@ -271,13 +271,16 @@ class LibraryEngine:
 
     def recognize(self, path: Path):
         hits = []
+        # 同名另存的时间戳后缀（__YYYYMMDD__HHMMSS）不参与匹配——重传应命中同一条预转录
+        stem = re.sub(r"__\d{8}__\d{6}$", "", path.stem)
+        name = stem + path.suffix
         for jf in TRANSCRIPTS_DIR.glob("*.json"):
             try:
                 data = json.loads(jf.read_text(encoding="utf-8"))
             except Exception:
                 continue
             src = data.get("source_file", "")
-            if path.name in src or path.stem in src:
+            if name in src or stem in src:
                 hits.append(data)
         if not hits:
             return None

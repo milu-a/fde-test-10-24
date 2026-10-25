@@ -52,16 +52,28 @@
     projQ: "", projFilter: "全部",   // 首页项目检索与状态筛选（只作用于主区卡片）
     navMonth: null,                  // 左侧导航展开的时间分组（null = 全部折叠，主区显示全部）
     amountMode: "hs",                // 台账金额口径：hs=含税 / ws=未税（含税不可折算的格在未税口径显示未税额 + *）
-    drawerKey: null                  // 当前打开的单元格抽屉（"itemId|supplier"）
+    drawerKey: null,                 // 当前打开的单元格抽屉（"itemId|supplier"）
+    drawerTrigger: null,             // 打开抽屉前的焦点元素（关闭时归还焦点）
+    lastModalTrigger: null,          // 打开弹层前的焦点元素（关闭时归还焦点）
+    lfUserCollapsed: null            // 图表折叠：null=按视口高度自动（<900px 折叠），true/false=用户手动指定
   };
 
   /* ---------------- 基础工具 ---------------- */
-  function toast(msg) {
+  /* toast：常规 6.5s 自逝；{ kind:"error", sticky:true } 常驻（toastErr 便捷封装）。
+     每条带 ✕ 手动关闭；堆叠上限 4，超出裁掉最旧的（读屏经 #toasts 的 aria-live 播报）。 */
+  function toast(msg, opts = {}) {
+    const host = $("#toasts");
+    if (!host) return;
     const el = document.createElement("div");
-    el.className = "orb-snack toast"; el.innerHTML = msg;
-    $("#toasts").appendChild(el);
-    setTimeout(() => el.remove(), 4200);
+    el.className = "orb-snack toast" + (opts.kind === "error" ? " toast-error" : "");
+    el.innerHTML = `<div class="tmsg">${msg}</div><button class="tclose" title="关闭提示">✕</button>`;
+    host.appendChild(el);
+    while (host.children.length > 4) host.firstElementChild.remove();
+    const close = () => el.remove();
+    el.querySelector(".tclose").addEventListener("click", close);
+    if (!opts.sticky) setTimeout(close, opts.ms || 6500);
   }
+  const toastErr = (msg) => toast(msg, { kind: "error", sticky: true });
   async function getJSON(url) {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
@@ -77,6 +89,7 @@
 
   /* ---------------- 首页 ---------------- */
   function renderHome() {
+    document.title = "分包比选工作台 · 比选项目列表";
     renderNav();   // 返回首页路径不经 renderCtx，需单独刷新导航活动态
     const q = state.projQ.trim().toLowerCase();
     const list = state.projects.filter((p) =>
@@ -97,13 +110,14 @@
         <div class="row1"><span class="pid">${esc(p.id)}</span><span class="pname">${esc(p.name)}</span>
           <span class="spacer" style="flex:1"></span><span class="badge ${STATUS_CLS[p.status] || ""}">${esc(p.status)}</span></div>
         <div class="meta"><span>负责人 <b>${esc(p.owner)}</b></span><span>报价 <b>${sm.suppliers || 0} 家</b></span>
-          <span>台账 <b>${sm.has_ledger ? "V1 原始" : "—"}</b></span><span>待办 <b>0</b> 项</span></div>
+          <span>台账 <b>${sm.has_ledger ? "V1 原始" : "—"}</b></span><span>待办事件 <b>${sm.pending_events || 0}</b> 条</span></div>
         <div class="act">${esc(p.created_at)} · ${esc(p.owner)} 创建项目 · 点击进入工作区</div>
       </div>`;
     }).join("")
       : (state.projects.length
         ? `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">没有符合条件的项目——试试点击时间分组或清除时间筛选，调整搜索关键字与状态筛选。</p>`
-        : `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">暂无比选项目——点击左侧「＋ 新建比选项目」创建第一轮比选；创建后进入工作区归集报价文件。</p>`);
+        : `<p style="grid-column:1/-1;color:var(--ink-4);font-size:13px;padding:10px 2px">暂无比选项目——点击左侧「＋ 新建比选项目」创建第一轮比选，或点击上方「载入演示项目」，先用内置 GC-017 案例查看完整五页签流程。</p>`);
+    writeHash();
   }
 
   /* ---------------- 左侧导航岛（项目按时间分组折叠；展开某组时主区联动筛选） ---------------- */
@@ -111,7 +125,8 @@
     const el = $("#navProjects");
     if (!el) return;
     const fw = $("#navFuncWrap");
-    if (fw) fw.style.display = state.cur ? "" : "none";
+    /* 工作区功能在「已选项目」或「演示工作区（cur=null 但 view=project）」时显示 */
+    if (fw) fw.style.display = (state.cur || state.view === "project") ? "" : "none";
     if (!state.projects.length) {
       el.innerHTML = `<p class="nav-empty">暂无比选项目——点击下方「＋ 新建比选项目」创建。</p>`;
       return;
@@ -143,6 +158,7 @@
       const pb = state.proj;
       const proj = (pb && pb.project) || state.cur;
       $("#ctxTitle").textContent = `${proj.id} · ${proj.name}`;
+      document.title = `${proj.id} · ${proj.name} · 分包比选工作台`;
       $("#ctxBadge").textContent = proj.status;
       $("#ctxBadge").className = `badge ${STATUS_CLS[proj.status] || ""}`;
       const stages = pb && pb.ledgers ? Object.keys(pb.ledgers) : [];
@@ -172,6 +188,7 @@
     const openIssues = (state.issues[state.stage] || []).filter((x) => !x.closed).length;
     const pendQ = state.queue.filter((q) => q.status === "pending").length;
     $("#ctxTitle").textContent = `${state.boot.project.id} · 园区测量检测分包`;
+    if (state.view === "project") document.title = `分包比选工作台 · ${state.boot.project.id} ${state.boot.project.name}`;
     $("#ctxBadge").textContent = "待澄清";
     $("#ctxBadge").className = "badge st-clarify";
     $("#ctxVersion").textContent = STAGE_SHORT[state.stage];
@@ -282,7 +299,7 @@
         const r = await fetch(`/api/recognize?filename=${encodeURIComponent(f.name)}${q}`,
           { method: "POST", body: f });
         const j = await r.json();
-        if (j.error) { toast(`识别失败：${esc(j.error)}`); continue; }
+        if (j.error) { toastErr(`识别失败：${esc(j.error)}`); continue; }
         await loadRecognition();
         if (state.cur) {
           await loadProjectBoard();
@@ -292,7 +309,7 @@
           toast(`识别完成：<b>${esc(j.file)}</b> · ${esc(j.channel_desc)} · 记录 ${j.records.length} 条${j.needs_model ? "（已转人工，不硬猜）" : ""}`);
         }
       } catch (e) {
-        toast(`识别请求失败：${esc(e.message)}——请确认已运行 python server.py`);
+        toastErr(`识别请求失败：${esc(e.message)}——请确认已运行 python server.py`);
       }
     }
   }
@@ -307,6 +324,35 @@
   /* 口径求和：hs=计算含税 / ws=未税（税率未声明也有未税额，不涉及折算） */
   const sumLines = (lines, mode) => lines.reduce((a, c) => a + Number((mode === "ws" ? c.ws : c.hs) || 0), 0);
   const wsAst = '<i class="ws-ast" title="税率未声明：本列为未税额，含税口径不可折算（不当 0、不硬折算）">*</i>';
+  /* 键盘可达：台账金额格可聚焦，回车/空格开抽屉，方向键在网格内移动（keydown 统一驱动） */
+  const kbAttr = (label, flagged) => ` tabindex="0" role="button" aria-label="${esc(label + (flagged ? "（有异常旗标，回车查看追溯）" : ""))}"`;
+  /* 比价摘要条：当前口径合计的最低/最高/价差三个数字 + 价差率徽章。
+     只陈述算术事实，不做推荐（判断权在商务部）；本口径无合计（未报/不可折算）的家数如实标注，
+     不当 0、不进极差——与合计行「—」同一套语义。 */
+  function renderDecisionStrip(led, sups, ws) {
+    const host = $("#decisionStrip");
+    if (!host) return;
+    const vals = sups.map((s) => {
+      const t = led.totals[s] || {};
+      const v = Number(ws ? t.ws : t.hs);
+      return { s, v: Number.isFinite(v) && v > 0 ? v : null };
+    });
+    const ok = vals.filter((x) => x.v != null);
+    host.hidden = ok.length < 2;
+    if (ok.length < 2) return;
+    const min = ok.reduce((a, b) => (b.v < a.v ? b : a));
+    const max = ok.reduce((a, b) => (b.v > a.v ? b : a));
+    const spread = max.v - min.v;
+    const rate = min.v > 0 ? (spread / min.v * 100).toFixed(1) + "%" : "—";
+    const excluded = sups.length - ok.length;
+    host.innerHTML = `
+      <span class="ds-cap">比价摘要 · ${ws ? "未税" : "含税"}合计（¥）</span>
+      <span class="ds-item">最低 <b class="ds-n">${fmt(min.v)}</b><small>${esc(min.s)}</small></span>
+      <span class="ds-item">最高 <b class="ds-n">${fmt(max.v)}</b><small>${esc(max.s)}</small></span>
+      <span class="ds-item">价差 <b class="ds-n">${fmt(spread)}</b></span>
+      <span class="orb-chip orb-chip-blue ds-badge" title="价差 ÷ 最低合计——算术事实，非评审意见">价差率 ${rate}</span>
+      ${excluded ? `<span class="ds-note">${excluded} 家本口径无合计 · 未计入对比</span>` : ""}`;
+  }
   /* 新项目台账：识别 → M4 匹配 → 引擎计算的 V1 原始/澄清后（orb-tbl 规格） */
   function renderProjectLedger() {
     const pb = state.proj;
@@ -321,9 +367,10 @@
     const hasData = !!(pb && stages.length && sups.length);
     $("#ledgerEmpty").classList.toggle("hidden", hasData);
     $("#ledgerWrap").classList.toggle("hidden", !hasData);
-    if (!hasData) return;
+    if (!hasData) { $("#decisionStrip").hidden = true; return; }
     const ws = state.amountMode === "ws";
     const led = pb.ledgers[stage];
+    renderDecisionStrip(led, sups, ws);
     const rawLed = pb.ledgers.v1_raw;
     const head = `<tr><th class="l lock lock1">编号</th><th class="l lock lock2">名称</th><th class="lock lock3">单位</th>
       <th class="lock lock4">数量</th>${sups.map((v) => `<th>${esc(v)}${ws ? "未税" : "含税"}</th>`).join("")}</tr>`;
@@ -332,14 +379,15 @@
       const p0 = lines[0];
       const title = p0 ? esc(p0.basis || p0.flags.join("；") || p0.note || "") : "";
       const src = ` data-src="${cat.id}|${sup}"`;
-      if (!p0 || p0.status !== "已计算") return `<td class="amount st-missing"${src} title="${title}">未报</td>`;
+      const kb = (txt, flagged) => kbAttr(`${sup} · ${cat.id} ${cat.name}：${txt}`, flagged);
+      if (!p0 || p0.status !== "已计算") return `<td class="amount st-missing"${src}${kb("未报")} title="${title}">未报</td>`;
       const flagged = lines.some((c) => c.flags.length);
       if (p0.hs === null) {
         /* 税率未给：含税口径显示状态文案（不当 0、不折算）；未税口径显示未税额 + * 标记 */
         if (ws) {
-          return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src} title="${title}">${fmt(sumLines(lines, "ws"))}${lines.length > 1 ? ` ×${lines.length}` : ""}${wsAst}</td>`;
+          return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src}${kb(`${fmt(sumLines(lines, "ws"))}（未税，税率未声明）`, flagged)} title="${title}">${fmt(sumLines(lines, "ws"))}${lines.length > 1 ? ` ×${lines.length}` : ""}${wsAst}</td>`;
         }
-        return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src} title="${title}">税率未给${lines.length > 1 ? ` ×${lines.length}` : ""}</td>`;
+        return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src}${kb("税率未给，含税不可折算", flagged)} title="${title}">税率未给${lines.length > 1 ? ` ×${lines.length}` : ""}</td>`;
       }
       /* 澄清修正：与 V1 原始比对，数值/数量变化即浅蓝底 */
       let restated = "";
@@ -350,19 +398,21 @@
           restated = " st-restated";
         }
       }
-      return `<td class="amount${restated}${flagged ? " st-flag" : ""}"${src} title="${title}">${fmt(sumLines(lines, state.amountMode))}</td>`;
+      const val = fmt(sumLines(lines, state.amountMode));
+      return `<td class="amount${restated}${flagged ? " st-flag" : ""}"${src}${kb(`${val}（${ws ? "未税" : "含税"}）`, flagged)} title="${title}">${val}</td>`;
     };
     const rows = pb.catalog.items.map((cat) => `
       <tr><td class="l lock lock1">${cat.id}</td><td class="l lock lock2" title="${esc(cat.name)}">${esc(cat.name)}</td>
       <td class="lock lock3">${esc(cat.unit)}</td>
       <td class="lock lock4">${esc(cat.qty)}</td>${sups.map((sup) => cellHtml(cat, sup)).join("")}</tr>`).join("");
+    const totBar = lfTotBar(led, sups, ws);
     const totalCell = (s) => {
       const t = led.totals[s] || {};
       const flags = t.flags || [];
       const top = (ws ? t.ws : t.hs) != null ? fmt(ws ? t.ws : t.hs) : "—";
       const sub = t.stated != null ? fmt(t.stated) : "—";
       const tip = flags.length ? ` title="${esc(flags.join("；"))}"` : "";
-      return `<td${flags.length ? ` class="st-flag"${tip}` : tip}>${top}<span class="t-sub">${sub}</span></td>`;
+      return `<td class="${flags.length ? "st-flag " : ""}tcell"${tip}><span class="tdwrap">${totBar(s)}${top}<span class="t-sub">${sub}</span></span></td>`;
     };
     const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0">合计（上行：计算${ws ? "未税" : "含税"}；下行：原报列示）</td>
       ${sups.map(totalCell).join("")}</tr>`;
@@ -378,6 +428,7 @@
     const led = curLedger();
     const qm = qtyMap(state.stage);
     const ws = state.amountMode === "ws";
+    renderDecisionStrip(led, SUPS, ws);
     syncAmountMode();
     const head = `<tr><th class="l lock lock1">编号</th><th class="l lock lock2">名称</th><th class="lock lock3">单位</th>
       <th class="lock lock4">数量</th>${SUPS.map((v) => `<th>${esc(v)}${ws ? "未税" : "含税"}</th>`).join("")}</tr>`;
@@ -390,21 +441,23 @@
         const p0 = lines[0];
         const title = esc(p0.basis || p0.flags.join("；") || p0.note || "");
         const src = ` data-src="${cat.id}|${sup}"`;
-        if (p0.status !== "已计算") return `<td class="amount st-missing"${src} title="${title}">未报</td>`;
+        const kb = (txt, flagged) => kbAttr(`${sup} · ${cat.id} ${cat.name}：${txt}`, flagged);
         const flagged = lines.some((c) => c.flags.length);
+        if (p0.status !== "已计算") return `<td class="amount st-missing"${src}${kb("未报", flagged)} title="${title}">未报</td>`;
         if (p0.hs === null) {
           /* 税率未给：含税口径显示状态文案（不当 0、不折算）；未税口径显示未税额 + * 标记 */
           if (ws) {
-            return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src} title="${title}">${fmt(sumLines(lines, "ws"))}${lines.length > 1 ? ` ×${lines.length}` : ""}${wsAst}</td>`;
+            return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src}${kb(`${fmt(sumLines(lines, "ws"))}（未税，税率未声明）`, flagged)} title="${title}">${fmt(sumLines(lines, "ws"))}${lines.length > 1 ? ` ×${lines.length}` : ""}${wsAst}</td>`;
           }
-          return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src} title="${title}">税率未给${lines.length > 1 ? ` ×${lines.length}` : ""}</td>`;
+          return `<td class="amount st-pending${flagged ? " st-flag" : ""}"${src}${kb("税率未给，含税不可折算", flagged)} title="${title}">税率未给${lines.length > 1 ? ` ×${lines.length}` : ""}</td>`;
         }
         /* 状态底色：与 V1 原始比对，数值/数量变化即"澄清修正"；C08 在 V2 为"变更重算" */
         const raw = ledRawCell(cat.id, sup);
         const changed = Number(p0.qty) !== Number(raw.qty) || Number(p0.hs) !== Number(raw.hs) ||
           lines.length !== state.ledgers.v1_raw.rows[cat.id][sup].length;
         const st = isV2Changed ? " st-recomp" : (changed ? " st-restated" : "");
-        return `<td class="amount${st}${flagged ? " st-flag" : ""}"${src} title="${title}">${fmt(sumLines(lines, state.amountMode))}</td>`;
+        const val = fmt(sumLines(lines, state.amountMode));
+        return `<td class="amount${st}${flagged ? " st-flag" : ""}"${src}${kb(`${val}（${ws ? "未税" : "含税"}）`, flagged)} title="${title}">${val}</td>`;
       }).join("");
       return `<tr><td class="l lock lock1">${cat.id}</td><td class="l lock lock2">${esc(cat.name)}</td>
         <td class="lock lock3">${esc(cat.unit)}</td>
@@ -413,12 +466,13 @@
 
     /* 合计（上行：计算口径随切换；下行：原报列示）与（V2）较V1差异 —— 与 M2 对比表 xlsx 同构 */
     const totTip = esc(SUPS.flatMap((s) => led.totals[s].flags.map((f) => `${s}：${f}`)).join("；"));
+    const totBar = lfTotBar(led, SUPS, ws);
     const totalRow = `<tr class="total"><td class="t-label lock" colspan="4" style="left:0" title="${totTip}">合计（上行：计算${ws ? "未税" : "含税"}；下行：原报列示）</td>
       ${SUPS.map((s) => {
         const t = led.totals[s];
         const top = (ws ? t.ws : t.hs) != null ? fmt(ws ? t.ws : t.hs) : "—";
         const sub = t.stated != null ? fmt(t.stated) : "—";
-        return `<td${t.flags.length ? ' class="st-flag"' : ""}>${top}<span class="t-sub">${sub}</span></td>`;
+        return `<td class="${t.flags.length ? "st-flag " : ""}tcell"><span class="tdwrap">${totBar(s)}${top}<span class="t-sub">${sub}</span></span></td>`;
       }).join("")}</tr>`;
     let deltaRow = "";
     if (state.stage === "v2") {
@@ -445,6 +499,10 @@
     if (d) d.classList.remove("open");
     const host = $(".drawer-host");
     if (host) host.classList.remove("drawer-open");
+    const t = state.drawerTrigger;               // 关闭抽屉后焦点归还来源单元格（键盘路径）
+    state.drawerTrigger = null;
+    if (t && document.contains(t) && t.matches && t.matches("td.amount[data-src]")) t.focus();
+    writeHash();
   }
   /* 修改历史：合并「事件（人工/AI 登记，含澄清文件路径）」与「版本留痕（识别与事件应用）」，按时间倒序 */
   function buildCellHistory(sup, itemId, pb, led) {
@@ -482,6 +540,7 @@
     const lines = (led.rows[itemId] || {})[sup] || [];
     const p0 = lines[0];
     state.drawerKey = key;
+    state.drawerTrigger = document.activeElement;   // 记录来源焦点，closeCellDrawer 归还
     const d = $("#cellDrawer");
     if (!d) return;
     d.classList.add("open");
@@ -565,6 +624,7 @@
       ${editSec}
       ${histSec}`;
     $("#cdBody").scrollTop = 0;
+    writeHash();
   }
   async function submitDrawerEdit() {
     if (!state.cur || !state.drawerKey) return;
@@ -587,11 +647,11 @@
         body: JSON.stringify({ op, supplier: sup, item: itemId, field: field || null, new: newVal, payload, evidence: basis, note: "台账单元格抽屉修改", operator: "商务人员A" })
       });
       const j = await r.json();
-      if (!r.ok) { toast(`登记失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      if (!r.ok) { toastErr(`登记失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       toast(`修改已登记为事件 <b>${esc(j.event.id)}</b>（待确认·已留痕）——在③事件与澄清确认应用后引擎重算生效。`);
       await loadProjectBoard();   // 完成后重取台账，并重开本抽屉以刷新历史
     } catch (e) {
-      toast(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
+      toastErr(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
     }
   }
 
@@ -604,16 +664,22 @@
     if (a.op === "RESOLVE_UNIT" && a.payload) return `1${a.payload.quote_unit}=${a.payload.items_per_quote_unit}台班`;
     return "—";
   }
+  /* 页签③ 异常旗标分类（项目模式筛选 chips 由实际旗标动态生成，与 demo 模式同构） */
+  const FLAG_CAT = [
+    [/税率|税额/, "税率"], [/重复/, "重复"], [/参考区间|异常低价|区间/, "区间"],
+    [/数量/, "数量"], [/合计/, "合计"], [/列示|抄写|不一致|差额/, "抄写"],
+    [/单位/, "单位"], [/漏报|未报|缺失/, "漏报"], [/附件|未并入/, "附件"], [/发票/, "发票"]
+  ];
+  const flagCat = (f) => { const hit = FLAG_CAT.find(([re]) => re.test(f)); return hit ? hit[1] : "其他"; };
   function renderEvents() {
     if (state.cur) {
       const pb = state.proj;
       const stages = Object.keys(pb && pb.ledgers ? pb.ledgers : {});
       const led = stages.length ? pb.ledgers[stages.includes(state.projStage) ? state.projStage : stages[0]] : null;
       /* 异常与待核查：当前版本引擎行级旗标聚合（状态型旗标按供应商折叠，原值保留） */
-      $("#anFilter").innerHTML = "";
       if (led) {
         const seen = new Set();
-        const rows = [];
+        const items = [];
         pb.catalog.items.forEach((cat) => pb.suppliers_order.forEach((sup) => {
           ((led.rows[cat.id] || {})[sup] || []).forEach((c) => {
             (c.flags || []).forEach((f) => {
@@ -621,15 +687,22 @@
               const key = collapse ? `${sup}|${f}` : `${sup}|${cat.id}|${f}`;
               if (seen.has(key)) return;
               seen.add(key);
-              rows.push(`<div class="an-row"><span class="cls"><span class="bdg info">${esc(sup)}${collapse ? "" : " · " + cat.id}</span></span>
-                <span class="txt"><b>${esc(f)}</b><small>引擎行级旗标 · 异常只提示不改写原值</small></span>
-                <span class="st"><span class="tag-open">● 待核查</span></span></div>`);
+              items.push({ sup, catId: cat.id, f, collapse, cat: flagCat(f) });
             });
           });
         }));
+        const cats = [...new Set(items.map((x) => x.cat))];
+        if (!cats.includes(state.anFilter)) state.anFilter = "全部";   // 跨项目残留的筛选类别安全复位
+        $("#anFilter").innerHTML = ["全部", ...cats].map((x) =>
+          `<button data-anf="${esc(x)}" class="${state.anFilter === x ? "active" : ""}">${esc(x)}</button>`).join("");
+        const rows = items.filter((x) => state.anFilter === "全部" || x.cat === state.anFilter)
+          .map((x) => `<div class="an-row"><span class="cls"><span class="bdg info">${esc(x.sup)}${x.collapse ? "" : " · " + esc(x.catId)}</span></span>
+            <span class="txt"><b>${esc(x.f)}</b><small>引擎行级旗标 · 异常只提示不改写原值</small></span>
+            <span class="st"><span class="tag-open">● 待核查</span></span></div>`);
         $("#anList").innerHTML = rows.length ? rows.join("")
-          : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">当前版本无异常旗标。</p>`;
+          : `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">当前版本无该类事项。</p>`;
       } else {
+        $("#anFilter").innerHTML = "";
         $("#anList").innerHTML = `<p style="color:var(--ink-4);font-size:13px;padding:8px 0">暂无异常事项：报价归集并生成台账后，系统核对发现的异常会列在这里。</p>`;
       }
       $("#evtEntries").innerHTML = `
@@ -737,8 +810,10 @@
       const d = a.hs != null && b.hs != null ? Number(b.hs) - Number(a.hs) : null;
       return `<div class="sumcard orb-card orb-card-raised"><div class="v">${s} 含税总价</div><div class="n num">${hsTxt}</div>
         <div class="d ${d >= 0 ? "delta-plus" : "delta-minus"}">${d != null ? (d >= 0 ? "+" : "") + fmt(d) : "税率澄清后可折算"}</div>
-        <div class="v" style="margin-top:4px">未税 ${fmt(a.ws)} → ${fmt(b.ws)}</div></div>`;
+        <div class="v" style="margin-top:4px">未税 ${fmt(a.ws)} → ${fmt(b.ws)}</div>
+        <svg class="lfmini" data-sup="${esc(s)}" data-from="${a.hs != null ? esc(a.hs) : ""}" data-to="${b.hs != null ? esc(b.hs) : ""}" aria-hidden="true"></svg></div>`;
     }).join("");
+    lfDryMinis();
     const changes = [];
     state.boot.catalog.items.forEach((cat) => SUPS.forEach((sup) => {
       const x = stageCell(cur, cat.id, sup), y = stageCell(tgt, cat.id, sup);
@@ -829,6 +904,7 @@
         ${ledCur.audit.map((o) => `<tr><td class="num">${esc(o["操作时间"])}</td><td>${esc(o["操作者"])}</td><td>${esc(o["供应商"])}</td><td>${esc(o["分项"])}</td>
           <td>${esc(o["原值"])} → <b>${esc(o["新值"])}</b>　<span style="color:var(--ink-4)">依据：${esc(o["变更依据"])}</span></td></tr>`).join("")}
         </tbody></table>` : `<p style="color:var(--ink-4);font-size:13px;padding:12px">暂无操作记录。</p>`;
+      lfVerChart();
       return;
     }
     $("#vtimeline").innerHTML = Object.keys(STAGE_SHORT).map((k) => {
@@ -860,8 +936,192 @@
 
     $("#opLog").innerHTML = `<table class="orb-tbl"><thead><tr><th style="width:130px">操作时间</th><th style="width:90px">操作者</th><th style="width:64px">供应商</th><th style="width:64px">分项</th><th>原值 → 新值 · 依据</th></tr></thead><tbody>
       ${led.audit.map((o) => `<tr><td class="num">${esc(o["操作时间"])}</td><td>${esc(o["操作者"])}</td><td>${esc(o["供应商"])}</td><td>${esc(o["分项"])}</td>
-        <td>${esc(o["原值"])} → <b>${esc(o["新值"])}</b>　<span style="color:var(--ink-4)">依据：${esc(o["变更依据"])}</span></td></tr>`).join("")}
+          <td>${esc(o["原值"])} → <b>${esc(o["新值"])}</b>　<span style="color:var(--ink-4)">依据：${esc(o["变更依据"])}</span></td></tr>`).join("")}
       </tbody></table>`;
+    lfVerChart();
+  }
+
+  /* =====================================================================
+   * Lieflat 图表层 · 手写 SVG 零依赖（内网离线可用）
+   * 结构正本：lieflat-charts basics-gallery.html
+   *   图A C1 tick rows (F5)  —— 台账合计对比：一行一家，1 刻度 ≈ ¥1,000，
+   *      行尾精确合计；不可折算画虚线轨道并标注，不当 0、不参与长度比较。
+   *   图B C8 dumbbell queue (F12) —— 版本间合计变动：空心 = 基线版本，
+   *      实心 = 当前查看版本，1 珠 = ¥1,000 变动（变化量可数）。
+   *   图C F12 微缩 —— 差异预演弹窗：统一标尺迷你哑铃，应用前看影响。
+   * 颜色全部取自 ORBIS 品牌变量（--orb-*），不引入第二套色系；
+   * 动画沿用 gallery 的 fade/pop 节奏，支持 prefers-reduced-motion 降级。
+   * ===================================================================== */
+  const LF_NS = "http://www.w3.org/2000/svg";
+  const lfEl = (p, t, a) => { const n = document.createElementNS(LF_NS, t); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
+  const lfTxt = (p, a, s) => { const n = lfEl(p, "text", a); n.textContent = s; return n; };
+  const lfTip = (n, s) => { const t = document.createElementNS(LF_NS, "title"); t.textContent = s; n.appendChild(t); };
+  const lfRnd = (i, k) => Math.abs(((i * 73856093) ^ (k * 19349663)) % 1000) / 1000;   // 确定性抖动，刷新不变形
+  const lfInk = "var(--orb-fg-strong)", lfMut = "var(--orb-muted)", lfGrid = "var(--line-2)";
+  const lfData = "var(--orb-primary)", lfPaper = "var(--orb-canvas,#fff)", lfWarn = "var(--orb-accent)";
+  const lfFade = (n, d) => { n.setAttribute("class", "lfc-fade"); n.style.animationDelay = d + "s"; return n; };
+  const lfPop = (n, d) => { n.setAttribute("class", "lfc-pop"); n.style.animationDelay = d + "s"; return n; };
+  /* 当前项目可用的台账阶段与查看阶段（demo / 项目两种模式统一取数） */
+  function lfCtx() {
+    const pb = state.cur ? state.proj : null;
+    const sups = pb ? (pb.suppliers_order || []) : SUPS;
+    const ledMap = pb ? (pb.ledgers || {}) : state.ledgers;
+    const stages = pb ? Object.keys(ledMap) : Object.keys(STAGE_SHORT).filter((k) => state.unlocked[k] && ledMap[k]);
+    if (!stages.length || !sups.length) return null;
+    const curStage = pb
+      ? (stages.includes(state.projStage) ? state.projStage : stages[stages.length - 1])
+      : (stages.includes(state.stage) ? state.stage : stages[0]);
+    const label = (k) => (pb ? STAGE_LABEL[k] : STAGE_SHORT[k]) || k;
+    return { pb, sups, ledMap, stages, curStage, label };
+  }
+  /* 折叠联动：默认按视口高度自动（<900px 折叠成标题摘要条，矮视口把空间还给台账表格）；
+     用户点击开关后以手动选择优先，跨会话不记忆 */
+  function applyLfCollapse() {
+    const collapsed = state.lfUserCollapsed !== null ? state.lfUserCollapsed : window.innerHeight < 900;
+    document.querySelectorAll(".lfblock").forEach((b) => {
+      b.classList.toggle("collapsed", collapsed);
+      const btn = b.querySelector(".lf-toggle");
+      if (btn) {
+        btn.setAttribute("aria-expanded", String(!collapsed));
+        btn.title = collapsed ? "展开图表" : "折叠图表";
+      }
+    });
+  }
+  /* 卡片四件套：折叠开关 + 结论式标题 + 副标题（图例/口径） + 图 + 来源行 */
+  function lfBlock(host, { title, sub, src, h, w = 840 }) {
+    host.innerHTML = `<h4><button type="button" class="lf-toggle" aria-expanded="true"><span class="lf-caret">▾</span></button>${title}</h4><div class="lfsub">${sub}</div>
+      <svg class="lfchart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img"></svg>
+      <div class="lfsrc">${src}</div>`;
+    host.querySelector(".lf-toggle").addEventListener("click", () => {
+      state.lfUserCollapsed = !host.classList.contains("collapsed");
+      applyLfCollapse();
+    });
+    applyLfCollapse();
+    return host.querySelector("svg");
+  }
+  function lfReveal(svg, fn) {
+    const go = () => { svg.innerHTML = ""; fn(svg); };
+    svg.style.cursor = "pointer";
+    svg.addEventListener("click", go);   // 点击重播
+    if (typeof IntersectionObserver === "undefined") { go(); return; }
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { go(); io.disconnect(); } }, { threshold: .15 });
+    io.observe(svg);                     // 滚入视野才播（隐藏页签切过来时触发）
+  }
+
+  /* 合计行内嵌对比条：长度 ∝ 当前口径合计，四家共用一把尺；不占额外版面，
+     明细清单保持原样一屏可读。不可折算（null/NaN）不画条——不当 0。 */
+  function lfTotBar(led, sups, ws) {
+    const val = (s) => { const t = led.totals[s] || {}; const v = Number(ws ? t.ws : t.hs); return Number.isFinite(v) ? v : 0; };
+    const max = Math.max(...sups.map(val), 1);
+    return (s) => {
+      const v = val(s);
+      return v > 0 ? `<span class="tbar" style="width:${Math.max(6, v / max * 100).toFixed(1)}%" aria-hidden="true"></span>` : "";
+    };
+  }
+
+  /* 图B · 版本间合计变动（F12 Dumbbell Queue，含税口径） */
+  function lfVerChart() {
+    const host = $("#verChart");
+    if (!host) return;
+    const c = lfCtx();
+    if (!c) { host.innerHTML = ""; host.classList.add("hidden"); return; }
+    host.classList.remove("hidden");
+    const fromStage = c.stages[0], moved = c.curStage !== fromStage;
+    const vals = {};
+    c.sups.forEach((s) => {
+      const g = (k) => { const t = (c.ledMap[k].totals[s]) || {}; return t.hs == null ? null : Number(t.hs); };
+      vals[s] = { from: g(fromStage), to: g(c.curStage) };
+    });
+    const nums = c.sups.flatMap((s) => [vals[s].from, vals[s].to].filter((v) => v != null));
+    if (!nums.length) { host.innerHTML = ""; host.classList.add("hidden"); return; }
+    const lo = Math.min(...nums) - 1600, hi = Math.max(...nums) + 1600;
+    const maxLen = Math.max(...c.sups.map((x) => String(x).length), 2);
+    const X0 = Math.max(56, maxLen * 11 + 22), X1 = 828;
+    const mapX = (v) => X0 + (v - lo) / (hi - lo) * (X1 - X0);
+    const H = 22 + c.sups.length * 52 + 30;
+    const fromLabel = c.label(fromStage), curLabel = c.label(c.curStage);
+    const svg = lfBlock(host, {
+      title: moved ? `版本推进，${c.sups.length} 家合计各走了多远` : `${c.sups.length} 家合计基线，事件应用后此处呈现两版对比`,
+      sub: `图例：空心 = ${fromLabel}含税合计 · 实心 = ${curLabel}含税合计 · 1 珠 = ¥1,000 变动（四舍五入）· 点与珠可悬停${moved ? "" : " · 应用事件生成新版本后，实心点与串珠出现"}`,
+      src: `来源：引擎台账 · ${fromLabel} → ${curLabel} · 含税口径 · 点击图重播`,
+      h: H
+    });
+    lfReveal(svg, (s) => {
+      c.sups.forEach((sup, i) => {
+        const y = 22 + i * 52, v = vals[sup];
+        lfFade(lfTxt(s, { x: X0 - 10, y: y + 4, "font-size": 9.5, "font-weight": 700, fill: lfMut, "text-anchor": "end" }, sup), i * .08);
+        lfFade(lfEl(s, "line", { x1: X0 - 6, y1: y, x2: X1 + 6, y2: y, stroke: lfGrid, "stroke-width": .7 }), i * .08);
+        const hasFrom = v.from != null, hasTo = v.to != null;
+        if (hasFrom && hasTo && moved) {
+          const xa = mapX(v.from), xb = mapX(v.to);
+          const d = v.to - v.from, nBead = Math.abs(d) < 500 ? 0 : Math.max(1, Math.round(Math.abs(d) / 1000));
+          for (let k = 0; k < nBead; k++) {
+            const t = (k + .5) / nBead, x = xb + t * (xa - xb), yy = y + (lfRnd(k + 1, i + 3) - .5) * 2.6;
+            lfPop(lfEl(s, "circle", { cx: x, cy: yy, r: 1.5 + lfRnd(k + 2, i + 4) * .9, fill: lfMut, opacity: .85 }), .3 + i * .08 + k * .03);
+          }
+          const hollow = lfPop(lfEl(s, "circle", { cx: xa, cy: y, r: 4.2, fill: lfPaper, stroke: lfInk, "stroke-width": 1.3 }), .2 + i * .08);
+          lfTip(hollow, `${sup} — ${fromLabel} ${fmt(v.from)}`);
+          const solid = lfPop(lfEl(s, "circle", { cx: xb, cy: y, r: 4.6, fill: lfData }), .6 + i * .08);
+          lfTip(solid, `${sup} — ${fromLabel} ${fmt(v.from)} → ${curLabel} ${fmt(v.to)}（${d >= 0 ? "+" : ""}${fmt(d)}）`);
+          /* 前后几乎重合时只标当前值，避免两枚标签叠印 */
+          if (Math.abs(xb - xa) >= 30) {
+            lfFade(lfTxt(s, { x: Math.max(X0 + 24, xa), y: y - 9, "font-size": 8.5, "font-weight": 700, fill: lfMut, "text-anchor": "middle" }, fmt(v.from)), .3 + i * .08);
+          }
+          lfFade(lfTxt(s, { x: Math.min(xb, 812), y: y - 9, "font-size": 10, "font-weight": 800, fill: lfInk, "text-anchor": "middle", class: "num" }, fmt(v.to)), .7 + i * .08);
+        } else if (!hasFrom && !hasTo) {
+          /* 两版都不可折算：只留说明，不发明位置（不当 0） */
+          lfFade(lfTxt(s, { x: X0 + 6, y: y - 9, "font-size": 8.5, "font-weight": 600, fill: lfMut }, "合计不可折算 · 未参与比较"), .3 + i * .08);
+        } else {
+          /* 基线态（无后续版本）或基线不可折算：只画存在的那个点，不发明位置 */
+          const x = mapX(hasFrom ? v.from : v.to);
+          if (moved && !hasFrom) {
+            /* 基线不可折算的注释放到行下方，避让当前值标签 */
+            lfFade(lfTxt(s, { x: X0 + 6, y: y + 18, "font-size": 8.5, "font-weight": 600, fill: lfMut }, `${fromLabel}不可折算`), .3 + i * .08);
+          }
+          const dot = hasFrom
+            ? lfPop(lfEl(s, "circle", { cx: x, cy: y, r: 4.2, fill: lfPaper, stroke: lfInk, "stroke-width": 1.3 }), .2 + i * .08)
+            : lfPop(lfEl(s, "circle", { cx: x, cy: y, r: 4.6, fill: lfData }), .2 + i * .08);
+          const which = hasFrom ? `${fromLabel}` : `${curLabel}`;
+          lfTip(dot, `${sup} — ${which}含税合计 ${fmt(hasFrom ? v.from : v.to)}${!hasFrom && moved ? `（${fromLabel}税率未给，不可折算，不当 0）` : ""}`);
+          lfFade(lfTxt(s, { x: Math.min(Math.max(x, X0 + 26), 812), y: y - 9, "font-size": 10, "font-weight": 800, fill: lfInk, "text-anchor": "middle", class: "num" }, fmt(hasFrom ? v.from : v.to)), .4 + i * .08);
+        }
+      });
+      const axisY = 22 + c.sups.length * 52 + 18;
+      lfFade(lfTxt(s, { x: X0, y: axisY, "font-size": 7.5, "font-weight": 600, fill: lfMut }, fromLabel), .9);
+      lfFade(lfTxt(s, { x: X1, y: axisY, "font-size": 7.5, "font-weight": 600, fill: lfMut, "text-anchor": "end" }, `${curLabel} · 含税合计（¥）`), .9);
+    });
+  }
+
+  /* 图C · 差异预演迷你哑铃（F12 微缩 · 四家共用一把尺） */
+  function lfDryMinis() {
+    const minis = [...document.querySelectorAll("#mDrySum .lfmini")];
+    if (!minis.length) return;
+    const pts = minis.map((m) => ({ el: m, from: m.dataset.from === "" ? null : Number(m.dataset.from), to: m.dataset.to === "" ? null : Number(m.dataset.to) }));
+    const nums = pts.flatMap((p) => [p.from, p.to]).filter((v) => v != null);
+    if (!nums.length) return;
+    const lo = Math.min(...nums) - 800, hi = Math.max(...nums) + 800;
+    const mapX = (v) => 10 + (v - lo) / (hi - lo) * 200;
+    pts.forEach((p, i) => {
+      const svg = p.el;
+      svg.innerHTML = "";
+      const s = lfEl(svg, "g", {});
+      lfEl(s, "line", { x1: 6, y1: 12, x2: 214, y2: 12, stroke: lfGrid, "stroke-width": .7 });
+      if (p.to != null) {
+        const solid = lfEl(s, "circle", { cx: mapX(p.to), cy: 12, r: 3.6, fill: lfData });
+        lfPop(solid, .25 + i * .06);
+        lfTip(solid, `应用后合计 ${fmt(p.to)}`);
+        lfEl(s, "text", { x: Math.min(mapX(p.to), 204), y: 9, "font-size": 7.5, "font-weight": 800, fill: lfInk, "text-anchor": "middle" }).textContent = "";
+      }
+      if (p.from != null) {
+        const hollow = lfEl(s, "circle", { cx: mapX(p.from), cy: 12, r: 3.4, fill: lfPaper, stroke: lfInk, "stroke-width": 1.1 });
+        lfPop(hollow, .1 + i * .06);
+        lfTip(hollow, `当前合计 ${fmt(p.from)}`);
+        if (p.to != null) {
+          const xa = mapX(p.from), xb = mapX(p.to);
+          lfEl(s, "line", { x1: xa, y1: 12, x2: xb, y2: 12, stroke: lfMut, "stroke-width": 1, opacity: .5 });
+        }
+      }
+    });
   }
 
   /* ---------------- 页签⑤ 导出交付 ---------------- */
@@ -921,8 +1181,31 @@
   }
 
   /* ---------------- 弹层 / 登记 / AI 位 ---------------- */
-  function showModal(id) { $("#" + id).classList.add("show"); }
-  function hideModals() { document.querySelectorAll(".overlay").forEach((o) => o.classList.remove("show")); }
+  /* 弹层焦点管理：打开时记录来源焦点并落焦首控件，关闭时归还（Tab 循环见全局 keydown） */
+  function showModal(id) {
+    state.lastModalTrigger = document.activeElement;
+    $("#" + id).classList.add("show");
+    const f = $("#" + id).querySelector("input:not(:disabled), select:not(:disabled), button:not(:disabled)");
+    if (f) f.focus();
+  }
+  function hideModals() {
+    document.querySelectorAll(".overlay").forEach((o) => o.classList.remove("show"));
+    confirmAction = null;
+    const t = state.lastModalTrigger;
+    state.lastModalTrigger = null;
+    if (t && document.contains(t)) { try { t.focus(); } catch (_) { /* 焦点元素已失效则忽略 */ } }
+  }
+  /* 高风险操作统一确认（确认入账 / 状态流转）：说明后果 + 「再想想」反悔口，确认后才执行 onOk */
+  let confirmAction = null;
+  function askConfirm({ title, body, okLabel, okStyle, onOk }) {
+    $("#mConfirmTitle").textContent = title;
+    $("#mConfirmBody").innerHTML = body;
+    const ok = $("#mConfirmOk");
+    ok.textContent = okLabel || "确认";
+    ok.className = "orb-btn " + (okStyle === "accent" ? "orb-btn-accent" : "orb-btn-primary");
+    confirmAction = onOk;
+    showModal("mConfirm");
+  }
   function registerModal() {
     if (state.cur) {
       const pb = state.proj;
@@ -977,7 +1260,7 @@
       } else if (op === "ADD_LINE") {
         if (line) {
           const mm = line.match(/^([\d.]+)\s*[×xX]\s*([\d.]+)$/);
-          if (!mm) { toast("补录行格式：数量×单价，如 12×460"); return; }
+          if (!mm) { toastErr("补录行格式：数量×单价，如 12×460"); return; }
           payload = { qty: mm[1], unit_price: mm[2] };
         } else {
           payload = { stated_amount: nv };
@@ -991,13 +1274,13 @@
           body: JSON.stringify({ op, supplier: sup, item, field, new: newVal, payload, evidence: basis, note, operator: "商务人员A" })
         });
         const j = await r.json();
-        if (!r.ok) { toast(`登记失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+        if (!r.ok) { toastErr(`登记失败：${esc(j.error || "HTTP " + r.status)}`); return; }
         hideModals();
         await loadProjectBoard();
         state.tab = 3; renderTabs();
         toast(`事件 <b>${esc(j.event.id)}</b> 已登记并留痕（待确认——确认应用前不动台账）。`);
       } catch (e) {
-        toast(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
+        toastErr(`登记失败：${esc(e.message)}——请确认已运行 python server.py`);
       }
       return;
     }
@@ -1041,14 +1324,14 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(time ? { name, owner, created_at: time } : { name, owner }) });
       const j = await r.json();
-      if (!r.ok) { toast(`创建失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      if (!r.ok) { toastErr(`创建失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       hideModals();
       await loadProjects();
       state.navMonth = String(j.created_at || "").slice(0, 7) || null;   // 新项目所在时间组自动展开
       renderHome();
       toast(`已创建 <b>${esc(j.id)}</b> · ${esc(j.name)}（负责人 ${esc(j.owner)}）——左侧已按「${esc(state.navMonth ? monthLabel(state.navMonth) : "未标注时间")}」分组展开。`);
     } catch (e) {
-      toast(`创建失败：${esc(e.message)}——请确认已运行 python server.py`);
+      toastErr(`创建失败：${esc(e.message)}——请确认已运行 python server.py`);
     }
   }
   function openProject(p) {
@@ -1063,23 +1346,23 @@
     try {
       const r = await fetch(`/api/projects/${encodeURIComponent(state.cur.id)}/events/${encodeURIComponent(eid)}/apply`, { method: "POST" });
       const j = await r.json();
-      if (!r.ok) { toast(`应用失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      if (!r.ok) { toastErr(`应用失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
       state.tab = 3; renderTabs();
       toast(`已应用 <b>${esc(j.event.id)}</b>：引擎重算完成，生成 <b>V1 澄清后</b> 版本（V1 原始基线保留，差异见「版本与差异」）。`);
     } catch (e) {
-      toast(`应用失败：${esc(e.message)}`);
+      toastErr(`应用失败：${esc(e.message)}`);
     }
   }
   async function discardEvent(eid) {
     try {
       const r = await fetch(`/api/projects/${encodeURIComponent(state.cur.id)}/events/${encodeURIComponent(eid)}/discard`, { method: "POST" });
       const j = await r.json();
-      if (!r.ok) { toast(`作废失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      if (!r.ok) { toastErr(`作废失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
       toast(`事件 <b>${esc(j.event.id)}</b> 已作废（作废不删除，留痕可查）。`);
     } catch (e) {
-      toast(`作废失败：${esc(e.message)}`);
+      toastErr(`作废失败：${esc(e.message)}`);
     }
   }
   async function deliverProject() {
@@ -1089,11 +1372,11 @@
         body: JSON.stringify({ status: "已交付评审" })
       });
       const j = await r.json();
-      if (!r.ok) { toast(`流转失败：${esc(j.error || "HTTP " + r.status)}`); return; }
+      if (!r.ok) { toastErr(`流转失败：${esc(j.error || "HTTP " + r.status)}`); return; }
       await loadProjectBoard();
       toast(`项目状态已流转：<b>已交付评审</b>（状态机 §6.1，已写入项目档案）。`);
     } catch (e) {
-      toast(`流转失败：${esc(e.message)}`);
+      toastErr(`流转失败：${esc(e.message)}`);
     }
   }
   /* 项目工作台全量数据（清单 + 识别登记 + 引擎台账 + 匹配报告），上传识别后重取 */
@@ -1110,19 +1393,31 @@
       renderAll();
       if (state.drawerKey) openCellDrawer(state.drawerKey);   // 台账重算后刷新已打开的单元格抽屉
     } catch (e) {
-      toast(`项目数据加载失败：${esc(e.message)}`);
+      toastErr(`项目数据加载失败：${esc(e.message)}`);
     }
   }
 
   /* ---------------- 事件绑定 ---------------- */
   document.addEventListener("click", (ev) => {
-    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#cdClose,#cdSubmit");
+    const t = ev.target.closest("[data-open],[data-ver],[data-tab],[data-src],[data-qok],[data-qwait],[data-anf],[data-dry],[data-apply],[data-diffjump],[data-proj],[data-evok],[data-evdis],[data-pf],[data-month],[data-mclear],[data-amt],.mclose,#btnManual,#btnAI,#mRegOk,#btnExport,#btnNewProj,#mNewOk,#btnQuickUpload,#btnDeliver,#btnDemoProj,#mConfirmOk,#cdClose,#cdSubmit");
     if (!t) return;
     const ds = t.dataset;
     if (t.id === "btnNewProj") return openNewProjModal();
     if (t.id === "mNewOk") return submitNewProject();
     if (t.id === "btnQuickUpload") return getFileInput().click();
-    if (t.id === "btnDeliver") { if (state.cur) return deliverProject(); return toast("标记为已交付评审：示例环境演示位。"); }
+    if (t.id === "btnDemoProj") { state.cur = null; state.proj = null; state.view = "project"; state.tab = 2; state.drawerKey = null; switchView(); return; }
+    if (t.id === "mConfirmOk") { const fn = confirmAction; hideModals(); if (fn) fn(); return; }
+    if (t.id === "btnDeliver") {
+      if (!state.cur) return toast("标记为已交付评审：示例环境演示位。");
+      return askConfirm({
+        title: "标记为已交付评审",
+        okLabel: "确认流转 · 已交付评审",
+        okStyle: "accent",
+        body: `<p style="font-size:13px;line-height:1.8">这是<b>单向</b>状态流转（状态机 §6.1）：项目「${esc(state.cur.name)}」将标记为<b>已交付评审</b>并写入项目档案。</p>
+          <p style="font-size:12px;color:var(--ink-4);line-height:1.7">流转前建议完成⑤导出自检——未关闭事项会如实随「需补充事项」表交付，不阻断。</p>`,
+        onOk: deliverProject
+      });
+    }
     if (ds.evok) return applyEvent(ds.evok);
     if (ds.evdis) return discardEvent(ds.evdis);
     if (t.id === "btnManual") return registerModal();
@@ -1148,16 +1443,28 @@
     }
     if (ds.open) { state.view = "project"; switchView(); return; }
     if (ds.proj) { const p = state.projects.find((x) => x.id === ds.proj); if (p) openProject(p); return; }
-    if (ds.ver) { if (state.cur) { state.projStage = ds.ver; } else { state.stage = ds.ver; } renderAll(); if (state.drawerKey) openCellDrawer(state.drawerKey); return; }
+    if (ds.ver) { if (state.cur) { state.projStage = ds.ver; } else { state.stage = ds.ver; } renderAll(); if (state.drawerKey) openCellDrawer(state.drawerKey); else writeHash(); return; }
     if (ds.tab) {
       if (state.view !== "project") { toast("请先在左侧「比选项目」中选择一个项目，再进入工作区功能。"); return; }
       state.tab = +ds.tab; renderTabs(); return;
     }
     if (t.id === "cdClose") return closeCellDrawer();
     if (t.id === "cdSubmit") return submitDrawerEdit();
-    if (ds.amt) { state.amountMode = ds.amt; renderLedger(); return; }
+    if (ds.amt) { state.amountMode = ds.amt; renderLedger(); writeHash(); return; }
     if (ds.src) return openCellDrawer(ds.src);
-    if (ds.qok) { const q = state.queue.find((x) => x.id === ds.qok); q.status = "done"; renderInbox(); renderCtx(); return toast(`字段已确认入账：${q.supplier} ${q.item}（确认动作留痕，实际环境写入操作记录）`); }
+    if (ds.qok) {
+      const q = state.queue.find((x) => x.id === ds.qok);
+      if (!q) return;
+      return askConfirm({
+        title: "确认入账",
+        okLabel: "确认入账",
+        body: `<p style="font-size:13px;line-height:1.8">将把这条<b>低置信识别字段</b>确认写入台账数据：</p>
+          <p style="font-size:13px;margin:6px 0"><b>${esc(q.supplier)} · ${esc(q.item)} ${esc(q.name || "")}</b><br>
+          <span style="color:var(--ink-4);font-size:12px">置信度 ${q.conf.toFixed(2)}${q.conf < 0.7 ? " · 低" : ""} · ${esc(q.note)}</span></p>
+          <p style="font-size:12px;color:var(--ink-4);line-height:1.7">确认动作留痕；无书面依据的未知值请改用「登记待澄清」——不当 0、不硬猜。</p>`,
+        onOk: () => { q.status = "done"; renderInbox(); renderCtx(); toast(`字段已确认入账：${q.supplier} ${q.item}（确认动作留痕，实际环境写入操作记录）`); }
+      });
+    }
     if (ds.qwait) { const q = state.queue.find((x) => x.id === ds.qwait); q.status = "done"; renderInbox(); renderCtx(); return toast(`已登记待澄清：${q.supplier} ${q.item}——未知值不入账，等待书面澄清。`); }
     if (ds.anf) { state.anFilter = ds.anf; renderEvents(); return; }
     if (ds.pf) { state.projFilter = ds.pf; renderHome(); return; }
@@ -1179,6 +1486,49 @@
   });
   document.addEventListener("input", (ev) => {
     if (ev.target.id === "projSearch") { state.projQ = ev.target.value; renderHome(); }
+  });
+  /* ---------------- 键盘可达：台账网格导航 + Esc 关闭 + 弹层焦点陷阱 ----------------
+     金额格（td.amount[tabindex]）：Enter/Space 开抽屉；方向键在网格内移动
+     （左右 = 同行相邻供应商列，上下 = 同供应商相邻清单行）；Esc 自顶向下关闭
+     （先弹层后抽屉）；Tab 在打开的弹层内循环，焦点不逃逸到背景。 */
+  document.addEventListener("keydown", (ev) => {
+    const k = ev.key;
+    if (k === "Escape") {
+      if (document.querySelector(".overlay.show")) { hideModals(); return; }
+      if (state.drawerKey) { closeCellDrawer(); return; }
+      return;
+    }
+    if ((k === "Enter" || k === " ") && ev.target instanceof HTMLElement &&
+        ev.target.matches("td.amount[data-src]")) {
+      ev.preventDefault();
+      openCellDrawer(ev.target.dataset.src);
+      return;
+    }
+    if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(k) ||
+        !(ev.target instanceof HTMLElement) || !ev.target.matches("td.amount[data-src]")) return;
+    ev.preventDefault();
+    const tr = ev.target.parentElement;
+    const cells = [...tr.querySelectorAll("td.amount[data-src]")];
+    const ci = cells.indexOf(ev.target);
+    const rows = [...tr.parentElement.querySelectorAll("tr")].filter((r) => r.querySelector("td.amount[data-src]"));
+    const ri = rows.indexOf(tr);
+    let target = null;
+    if (k === "ArrowRight") target = cells[ci + 1];
+    if (k === "ArrowLeft") target = cells[ci - 1];
+    if (k === "ArrowDown" && rows[ri + 1]) target = rows[ri + 1].querySelectorAll("td.amount[data-src]")[ci];
+    if (k === "ArrowUp" && rows[ri - 1]) target = rows[ri - 1].querySelectorAll("td.amount[data-src]")[ci];
+    if (target) target.focus();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Tab") return;
+    const ov = document.querySelector(".overlay.show");
+    if (!ov) return;
+    const f = [...ov.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])")]
+      .filter((el) => el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && (document.activeElement === last || !ov.contains(document.activeElement))) { ev.preventDefault(); first.focus(); }
   });
   document.addEventListener("click", (ev) => {
     if (ev.target.closest("#onlToggle")) {
@@ -1239,6 +1589,13 @@
     sp.addEventListener("dblclick", () => setW(DEF));
   })();
 
+  /* 图表折叠随视口高度联动（用户未手动指定时）；防抖 150ms */
+  let _lfRzT = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(_lfRzT);
+    _lfRzT = setTimeout(() => { if (state.lfUserCollapsed === null) applyLfCollapse(); }, 150);
+  });
+
   /* ---------------- 视图与页签 ---------------- */
   function switchView() {
     $("#viewHome").classList.toggle("show", state.view === "home");
@@ -1252,8 +1609,93 @@
     $("#" + { 1: "paneInbox", 2: "paneLedger", 3: "paneEvents", 4: "paneVersions", 5: "paneExport" }[state.tab]).classList.add("show");
     renderCtx();
     [renderInbox, renderLedger, renderEvents, renderVersions, renderExport][state.tab - 1]();
+    writeHash();
   }
   function renderAll() { renderCtx(); renderTabs(); }
+
+  /* ---------------- Hash 路由：刷新 / 分享 / 手动改址恢复视图状态 ----------------
+     #/                                        首页（q=搜索 pf=状态筛选 m=时间分组）
+     #/p/{项目ID}/{页签}/{口径}/{版本}/{抽屉?}  项目工作区
+     #/demo/{页签}/{版本}/{口径}/{抽屉?}        内置 GC-017 演示工作区
+     写入统一走 writeHash（history.replaceState，不产生历史记录噪音）；
+     读取仅在初始化与外部 hashchange（手动改址）时进行，lastHash 守卫自触发。 */
+  let lastHash = null;
+  function hashForState() {
+    if (state.view === "home") {
+      const p = new URLSearchParams();
+      if (state.projQ.trim()) p.set("q", state.projQ.trim());
+      if (state.projFilter !== "全部") p.set("pf", state.projFilter);
+      if (state.navMonth) p.set("m", state.navMonth);
+      const qs = p.toString();
+      return "#/" + (qs ? "?" + qs : "");
+    }
+    if (state.cur) {
+      let h = `#/p/${state.cur.id}/${state.tab}/${state.amountMode}/${state.projStage || "v1_raw"}`;
+      if (state.drawerKey) h += `/${state.drawerKey}`;
+      return h;
+    }
+    let h = `#/demo/${state.tab}/${state.stage}/${state.amountMode}`;
+    if (state.drawerKey) h += `/${state.drawerKey}`;
+    return h;
+  }
+  function writeHash() {
+    const h = hashForState();
+    lastHash = h;
+    if (location.hash !== h) history.replaceState(null, "", h);
+  }
+  const clampTab = (n) => (n >= 1 && n <= 5 ? n : 2);
+  function parseHash() {
+    const [path, qs] = (location.hash || "#/").slice(1).split("?");
+    /* 浏览器写入 hash 时会把中文 percent-encode（如 戊 → %E6%88%8A），读取段统一解码 */
+    const seg = path.split("/").filter(Boolean).map((s) => { try { return decodeURIComponent(s); } catch (_) { return s; } });
+    return { seg, q: new URLSearchParams(qs || "") };
+  }
+  function applyHash() {
+    const { seg, q } = parseHash();
+    state.projQ = q.get("q") || "";
+    state.projFilter = q.get("pf") || "全部";
+    state.navMonth = q.get("m") || null;
+    const si = $("#projSearch");
+    if (si && state.projQ) si.value = state.projQ;
+    if (seg[0] === "p" && seg[1]) {
+      const p = state.projects.find((x) => x.id === seg[1]);
+      state.tab = clampTab(Number(seg[2]));
+      if (seg[3] === "ws" || seg[3] === "hs") state.amountMode = seg[3];
+      state.projStage = seg[4] || "v1_raw";
+      state.drawerKey = seg[5] || null;
+      if (!p) return false;   // 项目已被删除或不存在 → 回落首页
+      state.cur = p;
+      state.proj = null;
+      state.view = "project";
+      state.navMonth = monthKey(p) || null;
+      switchView();
+      loadProjectBoard();     // board 到达后按 state.drawerKey 重开抽屉（既有钩子）
+      return true;
+    }
+    if (seg[0] === "demo") {
+      state.tab = clampTab(Number(seg[1]));
+      const st = seg[2];
+      if (st && state.unlocked[st]) state.stage = st;   // 未解锁版本回落已解锁的最新
+      let i = 3;
+      if (seg[i] === "ws" || seg[i] === "hs") { state.amountMode = seg[i]; i++; }
+      state.cur = null;
+      state.proj = null;
+      state.view = "project";
+      state.drawerKey = seg[i] || null;
+      switchView();
+      if (state.drawerKey) openCellDrawer(state.drawerKey);
+      return true;
+    }
+    state.view = "home";
+    state.cur = null;
+    state.proj = null;
+    switchView();
+    return true;
+  }
+  window.addEventListener("hashchange", () => {
+    if ((location.hash || "#/") === lastHash) return;   // 自己写入的忽略
+    applyHash();
+  });
 
   /* ---------------- 启动 ---------------- */
   async function init() {
@@ -1277,12 +1719,11 @@
     });
     $("#diffA").value = state.diffA; $("#diffB").value = state.diffB;
 
-    renderHome(); switchView(); renderTabs();
+    if (!applyHash()) { state.view = "home"; renderHome(); switchView(); renderTabs(); }   // 路由恢复（项目不存在回落首页）
     const bad = state.boot.checks.filter((x) => !x.ok);
     if (bad.length) toast("⚠ 引擎回归未全过：" + bad.map((b) => b.msg.slice(0, 18)).join("、"));
   }
   init().catch((e) => {
-    document.body.insertAdjacentHTML("beforeend",
-      `<div class="orb-snack toast" style="position:fixed;top:70px;right:20px;z-index:300">引擎服务未连接：${esc(e.message)} —— 请运行 <b>python server.py</b></div>`);
+    toast(`引擎服务未连接：${esc(e.message)} —— 请运行 <b>python server.py</b>`, { kind: "error", sticky: true });
   });
 })();

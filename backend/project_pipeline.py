@@ -254,11 +254,12 @@ def assemble_suppliers(rec_results: list):
 
 
 def project_summary(proj: dict) -> dict:
-    """首页卡片摘要：报价供应商数与台账是否已生成（轻量装配，不算全台账）。"""
+    """首页卡片摘要：报价供应商数、台账是否已生成、待确认事件数（轻量装配，不算全台账）。"""
     recs = [load_recognition_result(f.get("id")) for f in proj.get("files", [])]
     recs = [r for r in recs if r]
     _, suppliers, _, _, _ = assemble_suppliers(recs)
-    return {"suppliers": len(suppliers), "has_ledger": len(suppliers) > 0}
+    pending = sum(1 for e in proj.get("events", []) if e.get("status") == "待确认")
+    return {"suppliers": len(suppliers), "has_ledger": len(suppliers) > 0, "pending_events": pending}
 
 
 # ---------------------------------------------------------------- 事件（澄清/变更）

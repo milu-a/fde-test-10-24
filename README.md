@@ -76,7 +76,7 @@ python run_m4.py --confirm "原始名" C03 "依据"           # M4 人工确认�
 | `GET /api/export/{stage}` | 该阶段 5-sheet 台账 xlsx 下载 |
 | `POST /api/recognize?filename=<名>` | 上传原件（body=文件字节）→ 只读落位 inbox/ → read_file 识别 → 缓存 out/recognition/*.json；相同字节 MD5 重放不重复调用引擎 |
 | `GET /api/recognition` | 识别引擎链可用性 + 已缓存识别结果（收集箱回放展示） |
-| `GET /api/projects` | 运行时新建项目列表（backend/data/projects.json）+ 下一个可用项目编号 |
+| `GET /api/projects` | 运行时新建项目列表（backend/data/projects.json）+ 下一个可用项目编号；summary 含待确认事件数（pending_events，与 board counts 同口径） |
 | `POST /api/projects` | 新建比选项目：`{"name": 项目名称, "owner": 项目负责人, "created_at"?: "YYYY-MM-DD[ HH:MM[:SS]]"}`，名称/负责人必填，项目时间可选（缺省取当前时刻，非法格式返回 400）；编号自动续号（GC-017 案例之后从 GC-018 起），状态机初始「配置中」 |
 | `GET /api/projects/{id}/board` | 项目工作台全量数据：统一清单 + 已登记文件/识别记录 + **双版本台账（V1 原始 / V1 澄清后）** + 事件 + M4 匹配报告；每次请求现算 |
 | `GET /api/projects/{id}/export` | 按版本导出 5-sheet 比选台账 xlsx（`?version=v1_raw|v1_clarified`，企业模板副本填写） |
@@ -136,6 +136,9 @@ python run_m4.py --confirm "原始名" C03 "依据"           # M4 人工确认�
 - 「确认入账」为前端流程演示（不写库）；GC-017 的「登记事件」亦为演示（不触发重算），**新建项目的事件为真实链路**（登记→应用→引擎重算→新版本）；
 - 新建比选项目已打通全流程：上传识别（收集箱拖拽或工作区「＋ 上传报价」小按钮）→ M4 匹配 → V1 原始台账 → 人工登记事件 → 确认应用生成 V1 澄清后（④版本差异/操作留痕）→ ⑤导出五表 xlsx（按版本真实下载）→ 标记已交付评审（状态机）；
 - 仍为接口位/空状态：事件 AI 提取（路径B，离线置灰）、资格要求挂载（导出「资格材料清单」为空表）、供应商发票类型采集（M5 立项按未采集处理）、清单变更型事件（工程量重算 V2，走 GC-017 演示）；
-- GC-017 工作台五页签的前端代码与 `/api/*`（bootstrap/ledger/issues/export）保留，但首页不再提供其入口；
+- GC-017 工作台五页签的前端代码与 `/api/*`（bootstrap/ledger/issues/export）保留，首页经「载入演示项目」按钮或 `#/demo/…` hash 路由进入（只读演示）；
+- **Hash 路由**（`#/` 首页含 q/pf/m 筛选参数；`#/p/{项目}/{页签}/{口径}/{版本}/{抽屉?}`；`#/demo/{页签}/{版本}/{口径}/{抽屉?}`）：刷新/分享恢复视图状态，`history.replaceState` 写入不产生历史噪音，手动改址触发 `hashchange` 恢复；
+- **高风险操作确认**：「确认入账」与「标记为已交付评审」经统一确认弹层（说明后果 + 再想想），不再一键直通；
+- **Toast**：常规 6.5s 自逝、失败/错误类常驻（手动关闭），每条带 ✕，堆叠上限 4；
 - AI 提取/识别按钮为第三方接口位（离线置灰走人工路径）；
 - 单位确认换算只支持"整项均分"口径（引擎限制，见仓库 README）。

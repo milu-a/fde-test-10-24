@@ -23,3 +23,6 @@ backend/read-file/api_config.json
 .vscode/
 .DS_Store
 Thumbs.db
+
+# ---- 本地设计评审快照（impeccable）----
+.impeccable/

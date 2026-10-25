@@ -32,7 +32,12 @@ def read_file(path, engines=None):
             result.update(channel="excel", channel_desc="Excel（openpyxl·纯代码）",
                           engine="openpyxl", confidence="高", records=records, note=note)
         elif ext == ".pdf":
-            res = code_readers.read_pdf_text(path)
+            # 文字层抽取失败（如依赖缺失）不终结路由：降级按扫描件走模型引擎链
+            try:
+                res = code_readers.read_pdf_text(path)
+            except Exception as e:
+                res = None
+                result["note"] = f"文字层抽取异常（{e}），转扫描件通道"
             if res is not None:
                 records, note = res
                 result.update(channel="pdf_text", channel_desc="PDF文字层（pdfplumber·纯代码）",

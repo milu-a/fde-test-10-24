@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>分包比选工作台 · GC-017 山南勘测</title>
+<title>分包比选工作台</title>
 <!-- orbcafe-ui@3.1.8 官方 ORBIS 设计系统 CSS（自写样式 + 品牌主题包，本地 vendored） -->
 <link rel="stylesheet" href="data/vendor/orbcafe-ui/orbis.css">
 <link rel="stylesheet" href="data/vendor/orbcafe-ui/themes/orbis.css">
@@ -21,12 +21,13 @@
   <div class="nav-scroll">
     <div class="nav-label">比选项目</div>
     <div id="navProjects"></div>
-    <!-- 工作区功能分组：选中项目后才展示（app.js renderNav 控制显隐） -->
+    <!-- 工作区功能：②台账是主工作区（常驻首选），①③④⑤为次级流程组（紧凑展示，app.js renderNav 控制显隐） -->
     <div id="navFuncWrap" style="display:none">
       <div class="nav-label">工作区功能</div>
       <nav class="nav-funcs">
+        <button class="tab orb-tab tab-primary active" data-tab="2" title="商务人员的主工作区：统一对比台账 · 点击任意单元格追溯证据">② 统一对比台账 <span class="star">★</span></button>
+        <div class="nav-label nav-sub-label">流程与留痕</div>
         <button class="tab orb-tab" data-tab="1">① 收集箱 <span class="cnt" id="tabCnt1">0</span></button>
-        <button class="tab orb-tab active" data-tab="2">② 统一对比台账 <span class="star">★</span></button>
         <button class="tab orb-tab" data-tab="3">③ 事件与澄清 <span class="cnt" id="tabCnt3">0</span></button>
         <button class="tab orb-tab" data-tab="4">④ 版本与差异</button>
         <button class="tab orb-tab" data-tab="5">⑤ 导出交付</button>
@@ -50,16 +51,10 @@
 <div class="main-col">
 <!-- ============ 视图一：首页 · 比选项目列表 ============ -->
 <main id="viewHome" class="view page">
-  <div class="hero">
-    <div class="tagline">We digitalize you · 归集—核对—台账</div>
-    <div class="rule"></div>
-    <h1>分包比选工作台</h1>
-    <p>把各说各话的报价，变成可核对、可追溯、可继续修改的比选依据。口径清楚、异常可核对、每项数字有出处；系统只整理证据，判断权留给商务部与评审组。</p>
-  </div>
   <div class="page-head">
     <div class="petrol-line"></div>
     <h1>比选项目</h1>
-    <span class="sub">按项目组织一轮比选的全部文件、事件与台账版本</span>
+    <span class="sub">每轮比选的文件、事件与台账版本都组织在这里 · 系统只整理证据，判断权留给商务部与评审组</span>
   </div>
   <!-- 项目检索与状态筛选（只过滤主区卡片，左侧导航始终按时间分组展示全部项目） -->
   <div class="proj-toolbar">
@@ -69,6 +64,7 @@
     </div>
     <button class="orb-chip orb-chip-blue proj-month" id="projMonthChip" data-mclear="1" style="display:none" title="点击清除时间筛选">时间：<span id="projMonthChipText"></span> ✕</button>
     <div class="an-filter proj-filter" id="projFilter"></div>
+    <button class="orb-btn orb-btn-neutral" id="btnDemoProj" title="内置 GC-017 演示案例：四家供应商 · 澄清与变更双事件 · 三版本台账全流程（只读体验）">载入演示项目</button>
   </div>
   <div class="proj-grid" id="projGrid"></div>
 </main>
@@ -117,7 +113,9 @@
             <button data-amt="hs" class="active">含税金额</button>
             <button data-amt="ws">未税金额</button>
           </span>
-          <span style="flex:1"></span><span style="font-size:12px;font-weight:400;color:var(--ink-4)">点击任意单元格 → 右侧抽屉追溯 · 系统不推荐中标</span></h3>
+          <span style="flex:1"></span><span class="tbl-hint" style="font-size:12px;font-weight:400;color:var(--ink-4)">点击任意单元格 → 右侧抽屉追溯 · 系统不推荐中标</span></h3>
+        <!-- 比价摘要条：最低/最高/价差三个数字 + 价差率徽章（app.js renderDecisionStrip 填充；只陈述算术事实，不做推荐） -->
+        <div class="decision-strip" id="decisionStrip" hidden></div>
         <div id="ledgerEmpty" class="hidden" style="padding:28px 10px;text-align:center;color:var(--ink-4);font-size:13px;line-height:2">
           尚无统一台账：先到①收集箱上传供应商报价原件（Excel / PDF / 扫描件 / 截图均可），<br>
           识别记录自动匹配统一清单并经引擎计算后，此处生成 V1 原始台账——异常只提示，不改写原值。
@@ -128,8 +126,9 @@
           <span><i class="lg-pending"></i>税率未给（不可折算）</span>
           <span><i class="lg-restated"></i>澄清修正</span>
           <span><i class="lg-recomp"></i>变更重算</span>
-          <span><i class="lg-flag"></i>橙色底线 = 有异常旗标（原值保留）· 点击单元格在右侧抽屉追溯</span>
-          <span><i class="ws-ast">*</i>未税口径 · 税率未声明（含税不可折算，本列显示未税额）</span>
+          <span><i class="lg-flag"></i>橙底线 = 异常旗标（原值保留）</span>
+          <span><i class="lg-tbar"></i>合计条 ∝ 合计（各家共用一把尺）</span>
+          <span><i class="ws-ast">*</i>未税额（税率未声明）</span>
         </div>
       </div>
       <!-- 可拖拽分隔条：按住左右滑动调节表格与抽屉占比，双击恢复默认 -->
@@ -166,6 +165,8 @@
       <h3><span class="petrol-line"></span>版本时间轴</h3>
       <div class="vtimeline" id="vtimeline"></div>
       <div class="sumbar" id="sumBar"></div>
+      <!-- 版本间合计变动哑铃（lieflat-charts F12 Dumbbell Queue）：事件应用后呈现两版对比 -->
+      <div class="lfblock" id="verChart"></div>
       <h3 style="margin-top:8px"><span class="petrol-line"></span>版本差异对比</h3>
       <div class="vsel" id="diffSel">
         <span>对比</span>
@@ -185,7 +186,7 @@
     <div class="exp-grid">
       <div class="card orb-card panel">
         <h3><span class="petrol-line"></span>导出自检（不阻断 · 如实呈现）</h3>
-        <p class="hint">未确认事项将写入「需补充事项」表随包交付——交付的不是"完美台账"，是可信的证据链。</p>
+        <p class="hint">未确认事项将写入「需补充事项」表随包交付，如实呈现、不阻断。</p>
         <div id="expChk"></div>
         <div style="margin-top:14px;display:flex;gap:10px">
           <button class="orb-btn orb-btn-primary" id="btnExport">导出五表台账 + 异常报告</button>
@@ -246,7 +247,16 @@
   </div>
 </div>
 
-<div id="toasts"></div>
+<!-- ============ 弹层：高风险操作确认（确认入账 / 状态流转） ============ -->
+<div class="overlay orb-overlay" id="mConfirm">
+  <div class="modal modal-confirm">
+    <div class="mhead"><b id="mConfirmTitle">确认操作</b><button class="orb-icon-btn mclose">✕</button></div>
+    <div class="mbody" id="mConfirmBody"></div>
+    <div class="mfoot"><button class="orb-btn orb-btn-neutral mclose">再想想</button><button class="orb-btn orb-btn-primary" id="mConfirmOk">确认</button></div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
 
 <script src="data/app/app.js"></script>
 </body>
