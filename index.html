@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>分包比选工作台</title>
-<!-- orbcafe-ui@3.1.8 官方 ORBIS 设计系统 CSS（自写样式 + 品牌主题包，本地 vendored） -->
+<!-- orbcafe-ui@3.1.8 官方 ORBIS 设计系统 CSS（自写样式 + ORBIS CI 2026 主题覆盖层，本地 vendored） -->
 <link rel="stylesheet" href="data/vendor/orbcafe-ui/orbis.css">
-<link rel="stylesheet" href="data/vendor/orbcafe-ui/themes/orbis.css">
+<link rel="stylesheet" href="data/app/ci-theme.css">
 <link rel="stylesheet" href="data/app/style.css">
 </head>
 <body class="orb-root">
@@ -37,8 +37,8 @@
   <div class="nav-foot">
     <button class="orb-btn orb-btn-primary orb-btn-block" id="btnNewProj">＋ 新建比选项目</button>
     <div class="nav-foot-row">
-      <span class="chip orb-chip orb-chip-blue offline" id="onlChip">内网离线模式</span>
-      <span class="toggle" id="onlToggle" title="演示用：切换离线/在线，观察 AI 触点降级"><span class="tk"></span>模拟第三方接口</span>
+      <span class="chip orb-chip orb-chip-blue offline" id="onlChip">事件 AI 演示 · 关闭</span>
+      <button class="toggle" id="onlToggle" role="switch" aria-checked="false" title="仅切换事件 AI 演示状态，不影响文件识别引擎"><span class="tk" aria-hidden="true"></span>模拟 AI 接口</button>
     </div>
     <div class="nav-user">
       <span class="orb-avatar">商</span>
@@ -51,6 +51,7 @@
 <div class="main-col">
 <!-- ============ 视图一：首页 · 比选项目列表 ============ -->
 <main id="viewHome" class="view page">
+  <div class="workspace-bar"><span>商务工作空间 <span class="crumb-separator">/</span> <b>项目总览</b></span><span class="workspace-status"><i aria-hidden="true"></i>本地工作台</span></div>
   <div class="page-head">
     <div class="petrol-line"></div>
     <h1>比选项目</h1>
@@ -126,7 +127,7 @@
           <span><i class="lg-pending"></i>税率未给（不可折算）</span>
           <span><i class="lg-restated"></i>澄清修正</span>
           <span><i class="lg-recomp"></i>变更重算</span>
-          <span><i class="lg-flag"></i>橙底线 = 异常旗标（原值保留）</span>
+          <span><i class="lg-flag"></i>粉底线 = 异常旗标（原值保留）</span>
           <span><i class="lg-tbar"></i>合计条 ∝ 合计（各家共用一把尺）</span>
           <span><i class="ws-ast">*</i>未税额（税率未声明）</span>
         </div>
@@ -181,26 +182,28 @@
     </div>
   </section>
 
-  <!-- 页签⑤ 导出交付 -->
+  <!-- 页签⑤ 导出交付（蒸馏版：一选一下载 + 待补充事项折叠 + 说明收纳） -->
   <section class="tabpane" id="paneExport">
-    <div class="exp-grid">
-      <div class="card orb-card panel">
-        <h3><span class="petrol-line"></span>导出自检（不阻断 · 如实呈现）</h3>
-        <p class="hint">未确认事项将写入「需补充事项」表随包交付，如实呈现、不阻断。</p>
+    <div class="card orb-card export-card">
+      <header class="export-heading"><h2>导出交付</h2><p>选择版本，下载本轮比选台账。</p></header>
+      <div class="export-action">
+        <div class="export-version"><label for="exportVersion">台账版本</label><select class="orb-inp" id="exportVersion"></select></div>
+        <button class="orb-btn orb-btn-primary" id="btnExport">下载交付包</button>
+      </div>
+      <p class="export-meta" id="exportMeta"></p>
+      <section class="export-section" aria-labelledby="exportIssuesTitle">
+        <h3 id="exportIssuesTitle">待补充事项</h3>
         <div id="expChk"></div>
-        <div style="margin-top:14px;display:flex;gap:10px">
-          <button class="orb-btn orb-btn-primary" id="btnExport">导出五表台账 + 异常报告</button>
-          <button class="orb-btn orb-btn-neutral" id="btnDeliver">标记为已交付评审</button>
-        </div>
-        <div class="orb-alert orb-alert-info split-note">🔒 输出与原件物理分离：原件区 data/raw 只读；本工作台输出至独立输出目录。补录、修改与应用事件全部自动写入「操作记录」表。</div>
-      </div>
-      <div class="card orb-card panel">
-        <h3><span class="petrol-line"></span>三版本台账下载（M2 生成器）</h3>
-        <p class="hint">三版互不覆盖——V1 原始 / V1 澄清后 / V2 变更后各一份（规则第六条：原件永不覆盖）。导出即写出 5-sheet xlsx：对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单，表头与企业《比选输出模板》逐字一致。</p>
-        <div id="stageDl"></div>
-        <h3 style="margin:14px 0 6px"><span class="petrol-line"></span>导出历史</h3>
-        <div id="expHistory"></div>
-      </div>
+      </section>
+      <section class="export-section" aria-labelledby="exportHistoryTitle">
+        <div class="export-section-head"><h3 id="exportHistoryTitle">导出记录 <span>本次会话</span></h3><button class="orb-btn orb-btn-sm orb-btn-neutral" id="btnDeliver">标记为已交付评审</button></div>
+        <div id="expHistory" aria-live="polite"></div>
+      </section>
+      <details class="export-help"><summary>交付包说明</summary><div>
+        <p>一个 Excel 文件，包含对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单 5 张工作表，表头与企业《比选输出模板》逐字一致（M2 生成器 · 企业模板副本填写）。</p>
+        <p>三版互不覆盖：V1 原始 / V1 澄清后 / V2 变更后各一份（规则第六条：原件永不覆盖）；输出与原件物理分离——原件区只读，工作台输出至独立目录，补录与修改全部自动写入「操作记录」表。</p>
+        <p>未确认事项将写入「需补充事项」表随包交付，如实呈现、不阻断；列示金额只作比对基准 · 系统不推荐中标。</p>
+      </div></details>
     </div>
   </section>
 </main>
