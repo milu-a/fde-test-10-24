@@ -982,11 +982,11 @@
   /* =====================================================================
    * Lieflat 图表层 · 手写 SVG 零依赖（内网离线可用）
    * 结构正本：lieflat-charts basics-gallery.html
-   *   图A C1 tick rows (F5)  —— 台账合计对比：一行一家，1 刻度 ≈ ¥1,000，
-   *      行尾精确合计；不可折算画虚线轨道并标注，不当 0、不参与长度比较。
-   *   图B C8 dumbbell queue (F12) —— 版本间合计变动：空心 = 基线版本，
-   *      实心 = 当前查看版本，1 珠 = ¥1,000 变动（变化量可数）。
-   *   图C F12 微缩 —— 差异预演弹窗：统一标尺迷你哑铃，应用前看影响。
+   *   合计行内嵌对比条 —— 合计行内等比例长度条（四家一把尺），不占版面。
+   *   版本图（分组柱，C2 Paired Rungs 骨架扩至 N 阶段）—— 一组一家，
+   *      柱色浅→深 = 版本由旧到新，柱高 ∝ 含税合计（0 起量、共享标尺），
+   *      组下标注较基线变动；不可折算不画柱（不当 0）。
+   *   差异预演微缩（F12 微缩）—— 弹窗统一标尺迷你哑铃，应用前看影响。
    * 颜色全部取自 ORBIS 品牌变量（--orb-*），不引入第二套色系；
    * 动画沿用 gallery 的 fade/pop 节奏，支持 prefers-reduced-motion 降级。
    * ===================================================================== */
@@ -999,6 +999,7 @@
   const lfData = "var(--orb-primary)", lfPaper = "var(--orb-canvas,#fff)", lfWarn = "var(--orb-accent)";
   const lfFade = (n, d) => { n.setAttribute("class", "lfc-fade"); n.style.animationDelay = d + "s"; return n; };
   const lfPop = (n, d) => { n.setAttribute("class", "lfc-pop"); n.style.animationDelay = d + "s"; return n; };
+  const lfGrow = (n, d) => { n.setAttribute("class", n.getAttribute("class") + " lfc-grow"); n.style.animationDelay = d + "s"; return n; };
   /* 当前项目可用的台账阶段与查看阶段（demo / 项目两种模式统一取数） */
   function lfCtx() {
     const pb = state.cur ? state.proj : null;
@@ -1057,76 +1058,79 @@
     };
   }
 
-  /* 图B · 版本间合计变动（F12 Dumbbell Queue，含税口径） */
+  /* 版本间合计对比（分组柱状 · C2 Paired Rungs 骨架扩至 N 阶段，含税口径）
+   * 一组一家；组内每解锁阶段一根柱，浅→深 = 版本由旧到新；柱从 0 起量、
+   * 四组共享 y 标尺（长度诚实）。不可折算的阶段不画柱（不当 0）。 */
   function lfVerChart() {
     const host = $("#verChart");
     if (!host) return;
     const c = lfCtx();
     if (!c) { host.innerHTML = ""; host.classList.add("hidden"); return; }
     host.classList.remove("hidden");
-    const fromStage = c.stages[0], moved = c.curStage !== fromStage;
-    const vals = {};
-    c.sups.forEach((s) => {
-      const g = (k) => { const t = (c.ledMap[k].totals[s]) || {}; return t.hs == null ? null : Number(t.hs); };
-      vals[s] = { from: g(fromStage), to: g(c.curStage) };
-    });
-    const nums = c.sups.flatMap((s) => [vals[s].from, vals[s].to].filter((v) => v != null));
+    const nStage = c.stages.length, moved = nStage > 1;
+    const fromStage = c.stages[0], curStage = c.curStage;
+    const fromLabel = c.label(fromStage), curLabel = c.label(curStage);
+    const hsOf = (k, s) => { const t = (c.ledMap[k].totals[s]) || {}; return t.hs == null ? null : Number(t.hs); };
+    /* 每组的柱：[{k, v}]，仅收可折算阶段；全部不可折算 → 空数组 */
+    const groups = c.sups.map((s) => ({
+      s,
+      bars: c.stages.map((k) => ({ k, label: c.label(k), v: hsOf(k, s) })).filter((b) => b.v != null)
+    }));
+    const nums = groups.flatMap((g) => g.bars.map((b) => b.v));
     if (!nums.length) { host.innerHTML = ""; host.classList.add("hidden"); return; }
-    const lo = Math.min(...nums) - 1600, hi = Math.max(...nums) + 1600;
-    const maxLen = Math.max(...c.sups.map((x) => String(x).length), 2);
-    const X0 = Math.max(56, maxLen * 11 + 22), X1 = 828;
-    const mapX = (v) => X0 + (v - lo) / (hi - lo) * (X1 - X0);
-    const H = 22 + c.sups.length * 52 + 30;
-    const fromLabel = c.label(fromStage), curLabel = c.label(c.curStage);
+    const maxV = Math.max(...nums);
+    const W = 840, plotBase = 214, plotTop = 46, plotH = plotBase - plotTop;
+    const mapY = (v) => plotBase - (v / maxV) * plotH;
+    const H = plotBase + 52;
+    const barW = 30, gap = 7;
+    /* 柱色深度档：阶段由旧到新 0→2（浅→深），当前版本恒为最深层 */
+    const barCls = (j, n) => n <= 1 ? 2 : j === n - 1 ? 2 : n === 3 && j === 1 ? 1 : 0;
     const svg = lfBlock(host, {
       title: moved ? `版本推进，${c.sups.length} 家合计各走了多远` : `${c.sups.length} 家合计基线，事件应用后此处呈现两版对比`,
-      sub: `图例：空心 = ${fromLabel}含税合计 · 实心 = ${curLabel}含税合计 · 1 珠 = ¥1,000 变动（四舍五入）· 点与珠可悬停${moved ? "" : " · 应用事件生成新版本后，实心点与串珠出现"}`,
-      src: `来源：引擎台账 · ${fromLabel} → ${curLabel} · 含税口径 · 点击图重播`,
+      sub: `图例：一组一家 · 柱色浅→深 = 版本由旧到新 · 柱高 ∝ 含税合计（从 0 起量，四组共用一把尺）· 组下标注较基线变动 · 柱可悬停${moved ? "" : " · 应用事件生成新版本后出现对比柱"}`,
+      src: `GROUPED BARS · 来源：引擎台账 · ${fromLabel} → ${curLabel} · 含税口径 · 点击图重播`,
       h: H
     });
     lfReveal(svg, (s) => {
-      c.sups.forEach((sup, i) => {
-        const y = 22 + i * 52, v = vals[sup];
-        lfFade(lfTxt(s, { x: X0 - 10, y: y + 4, "font-size": 9.5, "font-weight": 700, fill: lfMut, "text-anchor": "end" }, sup), i * .08);
-        lfFade(lfEl(s, "line", { x1: X0 - 6, y1: y, x2: X1 + 6, y2: y, stroke: lfGrid, "stroke-width": .7 }), i * .08);
-        const hasFrom = v.from != null, hasTo = v.to != null;
-        if (hasFrom && hasTo && moved) {
-          const xa = mapX(v.from), xb = mapX(v.to);
-          const d = v.to - v.from, nBead = Math.abs(d) < 500 ? 0 : Math.max(1, Math.round(Math.abs(d) / 1000));
-          for (let k = 0; k < nBead; k++) {
-            const t = (k + .5) / nBead, x = xb + t * (xa - xb), yy = y + (lfRnd(k + 1, i + 3) - .5) * 2.6;
-            lfPop(lfEl(s, "circle", { cx: x, cy: yy, r: 1.5 + lfRnd(k + 2, i + 4) * .9, fill: lfMut, opacity: .85 }), .3 + i * .08 + k * .03);
+      /* 共享 0 基线 */
+      lfFade(lfEl(s, "line", { x1: 16, y1: plotBase, x2: W - 16, y2: plotBase, stroke: lfGrid, "stroke-width": .8 }), .1);
+      const groupW = W / c.sups.length;
+      groups.forEach((g, i) => {
+        const gx = groupW * (i + .5);
+        const k = g.bars.length;
+        /* 组基线小刻度 */
+        lfFade(lfEl(s, "line", { x1: gx - groupW / 2 + 14, y1: plotBase, x2: gx + groupW / 2 - 14, y2: plotBase, stroke: lfGrid, "stroke-width": .6 }), .15 + i * .06);
+        if (!k) {
+          lfFade(lfTxt(s, { x: gx, y: plotBase - 10, "font-size": 8.5, "font-weight": 600, fill: lfMut, "text-anchor": "middle" }, "合计不可折算 · 未参与比较"), .3 + i * .06);
+        }
+        g.bars.forEach((b, j) => {
+          const total = k * barW + (k - 1) * gap;
+          const x = gx - total / 2 + j * (barW + gap);
+          const y = mapY(b.v), hgt = plotBase - y;
+          const rect = lfGrow(lfEl(s, "rect", { x, y, width: barW, height: Math.max(hgt, 1), rx: 3, class: `lfc-grow lfbar${barCls(j, k)}` }), .25 + i * .07 + j * .09);
+          lfTip(rect, `${g.s} — ${b.label} 含税合计 ${fmt(b.v)}`);
+          /* 柱顶数值：当前版本加粗；与前一根同值的旧柱跳过标签，避免叠印 */
+          const prev = j > 0 ? g.bars[j - 1] : null;
+          const dup = prev && Math.abs(prev.v - b.v) < .005;
+          if (!dup) {
+            const cur = j === k - 1;
+            lfFade(lfTxt(s, { x: x + barW / 2, y: y - 6, "font-size": cur ? 10 : 7.5, "font-weight": cur ? 800 : 600,
+              fill: cur ? lfInk : lfMut, "text-anchor": "middle", class: "num" }, fmt(b.v)), .45 + i * .07 + j * .09);
           }
-          const hollow = lfPop(lfEl(s, "circle", { cx: xa, cy: y, r: 4.2, fill: lfPaper, stroke: lfInk, "stroke-width": 1.3 }), .2 + i * .08);
-          lfTip(hollow, `${sup} — ${fromLabel} ${fmt(v.from)}`);
-          const solid = lfPop(lfEl(s, "circle", { cx: xb, cy: y, r: 4.6, fill: lfData }), .6 + i * .08);
-          lfTip(solid, `${sup} — ${fromLabel} ${fmt(v.from)} → ${curLabel} ${fmt(v.to)}（${d >= 0 ? "+" : ""}${fmt(d)}）`);
-          /* 前后几乎重合时只标当前值，避免两枚标签叠印 */
-          if (Math.abs(xb - xa) >= 30) {
-            lfFade(lfTxt(s, { x: Math.max(X0 + 24, xa), y: y - 9, "font-size": 8.5, "font-weight": 700, fill: lfMut, "text-anchor": "middle" }, fmt(v.from)), .3 + i * .08);
-          }
-          lfFade(lfTxt(s, { x: Math.min(xb, 812), y: y - 9, "font-size": 10, "font-weight": 800, fill: lfInk, "text-anchor": "middle", class: "num" }, fmt(v.to)), .7 + i * .08);
-        } else if (!hasFrom && !hasTo) {
-          /* 两版都不可折算：只留说明，不发明位置（不当 0） */
-          lfFade(lfTxt(s, { x: X0 + 6, y: y - 9, "font-size": 8.5, "font-weight": 600, fill: lfMut }, "合计不可折算 · 未参与比较"), .3 + i * .08);
-        } else {
-          /* 基线态（无后续版本）或基线不可折算：只画存在的那个点，不发明位置 */
-          const x = mapX(hasFrom ? v.from : v.to);
-          if (moved && !hasFrom) {
-            /* 基线不可折算的注释放到行下方，避让当前值标签 */
-            lfFade(lfTxt(s, { x: X0 + 6, y: y + 18, "font-size": 8.5, "font-weight": 600, fill: lfMut }, `${fromLabel}不可折算`), .3 + i * .08);
-          }
-          const dot = hasFrom
-            ? lfPop(lfEl(s, "circle", { cx: x, cy: y, r: 4.2, fill: lfPaper, stroke: lfInk, "stroke-width": 1.3 }), .2 + i * .08)
-            : lfPop(lfEl(s, "circle", { cx: x, cy: y, r: 4.6, fill: lfData }), .2 + i * .08);
-          const which = hasFrom ? `${fromLabel}` : `${curLabel}`;
-          lfTip(dot, `${sup} — ${which}含税合计 ${fmt(hasFrom ? v.from : v.to)}${!hasFrom && moved ? `（${fromLabel}税率未给，不可折算，不当 0）` : ""}`);
-          lfFade(lfTxt(s, { x: Math.min(Math.max(x, X0 + 26), 812), y: y - 9, "font-size": 10, "font-weight": 800, fill: lfInk, "text-anchor": "middle", class: "num" }, fmt(hasFrom ? v.from : v.to)), .4 + i * .08);
+        });
+        /* 组名 + 变动标注 */
+        lfFade(lfTxt(s, { x: gx, y: plotBase + 18, "font-size": 9.5, "font-weight": 700, fill: lfMut, "text-anchor": "middle" }, g.s), .5 + i * .07);
+        let delta = null, hasBase = g.bars.length && g.bars[0].k === fromStage;
+        if (moved && hasBase) delta = g.bars[g.bars.length - 1].v - g.bars[0].v;
+        if (moved && g.bars.length) {
+          const txt = !hasBase ? `${fromLabel}不可折算`
+            : Math.abs(delta) < .005 ? "无变动" : `${delta > 0 ? "+" : ""}${fmt(delta)}`;
+          lfFade(lfTxt(s, { x: gx, y: plotBase + 32, "font-size": 8.5, "font-weight": hasBase && Math.abs(delta) >= .005 ? 700 : 600,
+            fill: !hasBase || Math.abs(delta) < .005 ? lfMut : lfWarn, "text-anchor": "middle", class: "num" }, txt), .65 + i * .07);
         }
       });
-      const axisY = 22 + c.sups.length * 52 + 18;
-      lfFade(lfTxt(s, { x: X0, y: axisY, "font-size": 7.5, "font-weight": 600, fill: lfMut }, fromLabel), .9);
-      lfFade(lfTxt(s, { x: X1, y: axisY, "font-size": 7.5, "font-weight": 600, fill: lfMut, "text-anchor": "end" }, `${curLabel} · 含税合计（¥）`), .9);
+      lfFade(lfTxt(s, { x: 16, y: H - 10, "font-size": 7.5, "font-weight": 600, fill: lfMut }, `${fromLabel}（基线）`), .9);
+      lfFade(lfTxt(s, { x: W - 16, y: H - 10, "font-size": 7.5, "font-weight": 600, fill: lfMut, "text-anchor": "end" }, `${curLabel} · 含税合计（¥）`), .9);
     });
   }
 

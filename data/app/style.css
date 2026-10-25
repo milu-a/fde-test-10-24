@@ -735,3 +735,12 @@ body.splitting .cell-drawer { transition: none; }
   display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: 3px;
   background: color-mix(in oklch, var(--orb-primary) 30%, transparent);
 }
+
+/* ============ 版本图分组柱（柱色浅→深 = 版本由旧到新 · ORBIS Corporate Blue 阶梯） ============ */
+.lfchart .lfbar0 { fill: color-mix(in oklch, var(--orb-primary) 40%, white); }
+.lfchart .lfbar1 { fill: color-mix(in oklch, var(--orb-primary) 70%, white); }
+.lfchart .lfbar2 { fill: var(--orb-primary); }
+.lfchart .lfc-grow { transform-box: fill-box; transform-origin: center bottom; animation: lfc-pop .6s cubic-bezier(.2, .7, .3, 1.2) both; }
+@media (prefers-reduced-motion: reduce) {
+  .lfchart .lfc-grow { animation: none !important; }
+}
