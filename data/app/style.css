@@ -216,15 +216,17 @@ a.orb-btn { text-decoration: none; }
 
 /* ============ 台账 · 比价摘要条：最低/最高/价差三个数字 + 价差率徽章 ============
    只陈述算术事实（当前口径合计的极差），不做推荐——判断权留给商务部；
-   一行高度（约 38px），把「看一眼就知道差多少」从合计行心算里解放出来。 */
+   一行高度（约 38px），把「看一眼就知道差多少」从合计行心算里解放出来。
+   强调用品牌 petrol-line 母题（与面板标题同语言），不用侧边色条。 */
 .decision-strip {
   display: flex; align-items: baseline; gap: 8px 22px; flex-wrap: wrap;
   padding: 9px 14px; margin-bottom: 12px;
-  border: 1px solid var(--line-2); border-left: 3px solid var(--orb-accent); border-radius: 8px;
+  border: 1px solid var(--line-2); border-radius: 8px;
   background: var(--orb-surface-2, var(--orb-surface-3, #f7f8fa));
   font: 400 12px/1.5 var(--orb-font); color: var(--orb-muted);
 }
-.decision-strip .ds-cap { font-weight: 600; color: var(--orb-fg); letter-spacing: .02em; }
+.decision-strip .ds-cap { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--orb-fg); letter-spacing: .02em; }
+.decision-strip .ds-cap::before { content: ""; width: 18px; height: 2px; background: var(--orb-accent); border-radius: 2px; }
 .decision-strip .ds-item { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
 .decision-strip .ds-n { font: 700 15px/1.2 var(--orb-font); color: var(--orb-fg-strong); font-variant-numeric: tabular-nums; }
 .decision-strip .ds-item small { font: 500 11.5px/1 var(--orb-font); color: var(--orb-muted); }
@@ -648,7 +650,7 @@ body.splitting .cell-drawer { transition: none; }
 .lfblock .lfsrc { margin-top: 6px; font: 500 11px/1.5 var(--orb-font); color: var(--orb-muted); text-transform: uppercase; letter-spacing: .08em; }
 .lfchart text, .lfmini text { font-family: var(--orb-font); }
 .lfchart .lfc-fade { animation: lfc-fade .9s ease both; }
-.lfchart .lfc-pop { transform-box: fill-box; transform-origin: center; animation: lfc-pop .5s cubic-bezier(.2, .7, .3, 1.3) both; }
+.lfchart .lfc-pop { transform-box: fill-box; transform-origin: center; animation: lfc-pop .5s cubic-bezier(.22, 1, .36, 1) both; }
 @keyframes lfc-fade { from { opacity: 0; } }
 @keyframes lfc-pop { from { transform: scale(0); } }
 #mDrySum .lfmini { width: 100%; height: 26px; display: block; margin-top: 8px; }

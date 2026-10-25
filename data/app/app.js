@@ -1338,6 +1338,8 @@
     state.cur = p;
     state.proj = null;
     state.view = "project";
+    state.tab = 2;                          // 打开项目即落在主工作区②台账（hash 路由恢复时会被显式覆盖）
+    state.drawerKey = null;
     state.navMonth = monthKey(p) || null;   // 侧栏自动展开该项目所在时间组
     switchView();
     loadProjectBoard();
