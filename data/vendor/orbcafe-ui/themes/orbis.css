@@ -1,0 +1,62 @@
+/* orbis.css — generated from the local Open Design preset "orbis". Do not edit.
+   Regenerate with: npx orbcafe-theme apply orbis
+   Import AFTER the base styles (import 'orbcafe-ui/styles.css').
+   Only base tokens are overridden; all derived tokens re-derive via color-mix. */
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./orbis/fonts/montserrat-300.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("./orbis/fonts/montserrat-500.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("./orbis/fonts/montserrat-600.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("./orbis/fonts/montserrat-700.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --orb-primary: #154194;
+  --orb-accent: #fc4c02;
+  --orb-fg: #696969;
+  --orb-fg-strong: #696969;
+  --orb-muted: #919191;
+  --orb-canvas: #ffffff;
+  --orb-surface: #f5f5f5;
+  --orb-border: #e6e6e6;
+  --orb-font-brand: "Montserrat";
+  --orb-r: 10px;
+}
+
+.orb-dark,
+[data-orb-mode="dark"] {
+  --orb-primary: #2c508c;
+  --orb-accent: #dc6328;
+  --orb-fg: #dcdcdc;
+  --orb-fg-strong: #dcdcdc;
+  --orb-muted: #adadad;
+  --orb-canvas: #1d1d1d;
+  --orb-surface: #141414;
+  --orb-surface-2: #272727;
+  --orb-border: #3e3e3e;
+  --orb-link: #97abc2;
+  --orb-font-brand: "Montserrat";
+  --orb-r: 10px;
+}

@@ -11,8 +11,13 @@
   GET /api/export/{stage}  生成并下载该阶段 5-sheet 比选台账 xlsx（企业模板副本填写）
   GET /api/projects        运行时新建项目列表 + 下一个可用项目编号
   POST /api/projects       新建比选项目（name=项目名称, owner=项目负责人）
-  GET /api/projects/{id}/board   项目工作台全量数据：清单+识别登记+引擎台账+匹配报告
-  POST /api/projects/{id}/attach 把已缓存的识别结果登记进项目（rec_id）
+  GET /api/projects/{id}/board   项目工作台全量数据：清单+识别登记+双版本台账+事件+匹配报告
+  GET /api/projects/{id}/export  按版本导出 5-sheet 台账 xlsx（?version=v1_raw|v1_clarified）
+  POST /api/projects/{id}/attach         把已缓存的识别结果登记进项目（rec_id）
+  POST /api/projects/{id}/events         登记事件候选（op/supplier/item/field/new/evidence）
+  POST /api/projects/{id}/events/{eid}/apply    确认并应用事件（引擎试算，拒绝则回滚）
+  POST /api/projects/{id}/events/{eid}/discard  作废待确认事件（不删除）
+  POST /api/projects/{id}/status         项目状态流转（状态机 §6.1）
   （POST /api/recognize 支持 &project={id}：上传识别成功即登记进项目）
 
 引擎金额计算零 LLM、全 Decimal（M1 设计红线）；服务仅用 Python 标准库 +
@@ -309,6 +314,24 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     # ------------------------------------------------------------ routing
+    def _project_event_route(self, pid: str, action: str, eid):
+        """POST 项目事件：登记（add）/ 确认应用（apply）/ 作废（discard）。"""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return self._json({"error": "请求体不是合法的 UTF-8 JSON"}, 400)
+            if action == "add":
+                return self._json({"event": pp.add_event(pid, body if isinstance(body, dict) else {})}, 201)
+            if action == "apply":
+                return self._json({"event": pp.apply_event(pid, eid)})
+            return self._json({"event": pp.discard_event(pid, eid)})
+        except KeyError as exc:
+            return self._json({"error": f"不存在：{exc}"}, 404)
+        except ValueError as exc:
+            return self._json({"error": str(exc)}, 400)
+
     def do_GET(self):
         path = unquote(urlparse(self.path).path)
         try:
@@ -332,7 +355,7 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/recognition":
                 return self._json({"engines": recognition_engines(), "results": recognition_list()})
             if path == "/api/projects":
-                projects = pp.load_projects()
+                projects = [dict(p, summary=pp.project_summary(p)) for p in pp.load_projects()]
                 return self._json({"projects": projects, "next_id": pp.next_project_id(projects)})
             if path.startswith("/api/projects/"):
                 pid, _, sub = path[len("/api/projects/"):].partition("/")
@@ -341,6 +364,16 @@ class Handler(SimpleHTTPRequestHandler):
                     if proj is None:
                         return self._json({"error": f"项目 {pid} 不存在"}, 404)
                     return self._json(pp.build_board(proj))
+                if sub == "export":
+                    qs = parse_qs(urlparse(self.path).query)
+                    version = (qs.get("version") or ["v1_raw"])[0]
+                    try:
+                        f = pp.export_project(pid, version)
+                    except KeyError:
+                        return self._json({"error": f"项目 {pid} 不存在"}, 404)
+                    except ValueError as exc:
+                        return self._json({"error": str(exc)}, 400)
+                    return self._file(f)
                 return self._json({"error": "unknown api"}, 404)
             if path.startswith("/api/"):
                 return self._json({"error": "unknown api"}, 404)
@@ -358,7 +391,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """POST /api/recognize?filename=<原始文件名>　body = 文件原始字节。
-        POST /api/projects　body = {"name": 项目名称, "owner": 项目负责人} JSON。
+        POST /api/projects　body = {"name": 项目名称, "owner": 项目负责人,
+        "created_at"?: "YYYY-MM-DD[ HH:MM[:SS]]"} JSON（created_at 为界面「项目时间」，缺省取当前时刻）。
 
         recognize 不用 multipart：本地工具直传字节流最简，前端 fetch(file) 即可。"""
         path = unquote(urlparse(self.path).path)
@@ -381,9 +415,17 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._json({"error": "项目名称与项目负责人均为必填"}, 400)
                 if len(name) > 60 or len(owner) > 30:
                     return self._json({"error": "项目名称不超过 60 字、项目负责人不超过 30 字"}, 400)
-                return self._json(pp.create_project(name, owner), 201)
+                created_at = body.get("created_at")
+                if created_at is not None and not isinstance(created_at, str):
+                    return self._json({"error": "项目时间须为字符串（YYYY-MM-DD 或 YYYY-MM-DD HH:MM[:SS]）"}, 400)
+                try:
+                    proj = pp.create_project(name, owner, created_at=(created_at or "").strip() or None)
+                except ValueError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                return self._json(proj, 201)
             if path.startswith("/api/projects/"):
-                pid, _, sub = path[len("/api/projects/"):].partition("/")
+                rest = path[len("/api/projects/"):]
+                pid, _, sub = rest.partition("/")
                 if sub == "attach":
                     length = int(self.headers.get("Content-Length") or 0)
                     try:
@@ -400,6 +442,23 @@ class Handler(SimpleHTTPRequestHandler):
                     except ValueError as exc:
                         return self._json({"error": str(exc)}, 404)
                     return self._json(proj)
+                if sub == "events":
+                    return self._project_event_route(pid, "add", None)
+                parts = rest.split("/")
+                if len(parts) == 4 and parts[1] == "events" and parts[3] in ("apply", "discard"):
+                    return self._project_event_route(pid, parts[3], parts[2])
+                if sub == "status":
+                    length = int(self.headers.get("Content-Length") or 0)
+                    try:
+                        body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        return self._json({"error": "请求体不是合法的 UTF-8 JSON"}, 400)
+                    try:
+                        return self._json(pp.set_status(pid, str(body.get("status") or "")))
+                    except KeyError:
+                        return self._json({"error": f"项目 {pid} 不存在"}, 404)
+                    except ValueError as exc:
+                        return self._json({"error": str(exc)}, 400)
                 return self._json({"error": "unknown api"}, 404)
             if path != "/api/recognize":
                 return self._json({"error": "unknown api"}, 404)

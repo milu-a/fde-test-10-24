@@ -17,17 +17,23 @@ import time
 from pathlib import Path
 
 from engine import ledger_to_dict
-from engine.ledger import LedgerBuilder
+from engine.ledger import Amendment, LedgerBuilder
 from engine.models import Direction, QuoteLine, SourceRef, TaxProfile
 from engine.money import D
 from matching.matcher import match_line
+from report import write_ledger
 
 BACKEND = Path(__file__).resolve().parent
 PROJECTS_FILE = BACKEND / "data" / "projects.json"
 RECOG_DIR = BACKEND / "out" / "recognition"
+OUT = BACKEND / "out"
+TEMPLATE = BACKEND.parent / "04 报价各说各话，工程分包怎么比？" / "01 原始报价与清单" / "比选输出模板.xlsx"
 PROJECT_STATUS_INIT = "配置中"            # 项目状态机（界面设计文档 §6.1）初始态
 PROJECT_STATUS_COLLECTING = "归集中"      # 已登记报价文件
 PROJECT_ID_FLOOR = 17                     # GC-017 为内置案例编号，新建项目从 GC-018 续号
+KNOWN_STATUS = ("配置中", "收件中", "归集中", "待澄清", "台账已出", "已交付评审", "已定标", "已归档")
+EVENT_OPS = ("DECLARE_TAX", "ADD_LINE", "SET_FIELD", "DEDUPE", "RESOLVE_UNIT")
+VERSION_LABEL = {"v1_raw": "V1原始", "v1_clarified": "V1澄清后"}
 
 _LEDGER_VERSION = "V1 原始（识别归集）"
 
@@ -58,9 +64,23 @@ def next_project_id(projects: list) -> str:
     return f"GC-{top + 1:03d}"
 
 
-def create_project(name: str, owner: str) -> dict:
+_PROJECT_TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$")
+
+
+def create_project(name: str, owner: str, created_at: str | None = None) -> dict:
+    """created_at 可选（前端「项目时间」）：YYYY-MM-DD 或 YYYY-MM-DD HH:MM[:SS]。
+    缺省仍取当前时刻（接口向后兼容）；只填到日时按当日 00:00:00 归一存储。"""
     projects = load_projects()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
+    if created_at:
+        created_at = str(created_at).strip().replace("T", " ")
+        if not _PROJECT_TIME_RE.fullmatch(created_at):
+            raise ValueError("项目时间格式应为 YYYY-MM-DD 或 YYYY-MM-DD HH:MM[:SS]")
+        if len(created_at) == 10:
+            created_at += " 00:00:00"
+        elif len(created_at) == 16:
+            created_at += ":00"
+        now = created_at
     proj = {"id": next_project_id(projects), "name": name, "owner": owner,
             "status": PROJECT_STATUS_INIT, "files": [],
             "created_at": now, "updated_at": now}
@@ -212,6 +232,8 @@ def assemble_suppliers(rec_results: list):
         lines = lines_by_sup.get(vendor, [])
         if not lines:
             continue                                  # 只有合计/说明行的文件不成供应商
+        if not any(l.unit_price is not None or l.stated_amount is not None for l in lines):
+            continue                                  # 全文无任何价格信号（如标准清单/参考区间表）→ 不是报价，不入对比
         meta = meta_by_sup[vendor]
         direction = Direction(meta["direction"] or "含税")
         catalog_sup[vendor] = {
@@ -231,28 +253,233 @@ def assemble_suppliers(rec_results: list):
     return catalog, catalog_sup, tax_profiles, sup_order, report
 
 
-def build_board(proj: dict) -> dict:
-    """项目全量工作台数据：清单 + 识别登记 + 引擎台账 + 匹配报告。
-
-    每次请求现算（引擎为纯本地 Decimal 计算，代价可忽略），无版本事件时即
-    V1 原始口径；澄清/变更事件接入后在此追加 amendments。"""
-    file_ids = [f.get("id") for f in proj.get("files", [])]
-    recs = [load_recognition_result(rid) for rid in file_ids]
+def project_summary(proj: dict) -> dict:
+    """首页卡片摘要：报价供应商数与台账是否已生成（轻量装配，不算全台账）。"""
+    recs = [load_recognition_result(f.get("id")) for f in proj.get("files", [])]
     recs = [r for r in recs if r]
-    catalog, suppliers, tax_profiles, sup_order, report = assemble_suppliers(recs)
+    _, suppliers, _, _, _ = assemble_suppliers(recs)
+    return {"suppliers": len(suppliers), "has_ledger": len(suppliers) > 0}
 
-    ledger = None
+
+# ---------------------------------------------------------------- 事件（澄清/变更）
+def _touch(proj: dict) -> None:
+    proj["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _project_rec_results(proj: dict) -> list:
+    recs = [load_recognition_result(f.get("id")) for f in proj.get("files", [])]
+    return [r for r in recs if r]
+
+
+def _to_amendment(e: dict) -> Amendment:
+    return Amendment(op=e["op"], supplier=e.get("supplier"), item_id=e.get("item"),
+                     field=e.get("field"), old=e.get("old"), new=e.get("new"),
+                     payload=e.get("payload"), evidence=e.get("evidence", ""),
+                     at=e.get("at", ""), operator=e.get("operator", ""), note=e.get("note", ""))
+
+
+def add_event(pid: str, body: dict) -> dict:
+    """登记事件候选（路径A 人工结构化登记）：先静态校验，应用时引擎二次把关。"""
+    projects = load_projects()
+    proj = find_project(projects, pid)
+    if proj is None:
+        raise KeyError(pid)
+    op = str(body.get("op") or "")
+    if op not in EVENT_OPS:
+        raise ValueError(f"不支持的事件类型 {op}（允许：{'/'.join(EVENT_OPS)}）")
+    supplier = str(body.get("supplier") or "").strip()
+    evidence = str(body.get("evidence") or "").strip()
+    item = (str(body.get("item") or "").strip().upper() or None)
+    new = str(body.get("new") or "").strip()
+    payload = body.get("payload") if isinstance(body.get("payload"), dict) else None
+    note = str(body.get("note") or "").strip()
+    operator = str(body.get("operator") or "商务人员A").strip() or "商务人员A"
+    if not supplier or not evidence:
+        raise ValueError("供应商与依据文件均为必填——无依据不改数（规则第六条）")
+    if op in ("SET_FIELD", "ADD_LINE", "DEDUPE", "RESOLVE_UNIT") and not item:
+        raise ValueError("该事件类型必须指定清单项")
+
+    catalog, _sup, _tax, sup_order, _rep = assemble_suppliers(_project_rec_results(proj))
+    if supplier not in sup_order:
+        raise ValueError(f"供应商「{supplier}」不在本项目已归集的报价供应商中（{'、'.join(sup_order) or '无'}）")
+    if item is not None and item not in catalog:
+        raise ValueError(f"清单项 {item} 不在统一清单 C01–C15 中")
+    if op == "SET_FIELD":
+        if str(body.get("field") or "") not in ("qty", "unit_price", "stated_amount"):
+            raise ValueError("SET_FIELD 的 field 仅支持 qty / unit_price / stated_amount")
+        if not new:
+            raise ValueError("SET_FIELD 必须提供新值")
+    elif op == "DECLARE_TAX":
+        if not new:
+            raise ValueError("申报税率必须提供新值（如 0.06 表示 6%）")
+        try:
+            D(new)
+        except Exception:
+            raise ValueError("税率须为数值（如 0.06 表示 6%），不得默认补写")
+    elif op == "ADD_LINE":
+        if not payload or (payload.get("stated_amount") is None
+                           and (payload.get("unit_price") is None or payload.get("qty") is None)):
+            raise ValueError("补录行需提供 整项金额 stated_amount，或 数量 qty × 单价 unit_price")
+    elif op == "RESOLVE_UNIT":
+        if not payload or payload.get("items_per_quote_unit") is None:
+            raise ValueError("单位确认需提供换算比例 items_per_quote_unit（如 1项=4台班 填 4）")
+
+    events = proj.setdefault("events", [])
+    nums = [int(m.group(1)) for e in events for m in [re.fullmatch(r"EVT-(\d+)", str(e.get("id", "")))] if m]
+    ev = {"id": f"EVT-{max(nums or [0]) + 1:03d}", "op": op, "supplier": supplier,
+          "item": item, "field": body.get("field"), "old": str(body.get("old") or "") or None,
+          "new": new or None, "payload": payload, "evidence": evidence,
+          "at": time.strftime("%Y-%m-%d %H:%M"), "operator": operator,
+          "note": note, "status": "待确认"}
+    events.append(ev)
+    _touch(proj)
+    save_projects(projects)
+    return ev
+
+
+def _find_event(proj: dict, eid: str):
+    return next((e for e in proj.get("events", []) if e.get("id") == eid), None)
+
+
+def apply_event(pid: str, eid: str) -> dict:
+    """确认并应用事件：标记已应用 → 引擎试算，拒绝则回滚状态（坏事件不入账）。"""
+    projects = load_projects()
+    proj = find_project(projects, pid)
+    if proj is None:
+        raise KeyError(pid)
+    ev = _find_event(proj, eid)
+    if ev is None:
+        raise KeyError(eid)
+    if ev.get("status") != "待确认":
+        raise ValueError(f"事件 {eid} 当前状态为「{ev.get('status')}」，不能应用")
+    ev["status"] = "已应用"
+    try:
+        _project_ledgers(proj)
+    except Exception as exc:
+        ev["status"] = "待确认"
+        raise ValueError(f"引擎拒绝该事件（未入账）：{exc}")
+    _touch(proj)
+    if proj.get("status") in (PROJECT_STATUS_INIT, PROJECT_STATUS_COLLECTING):
+        proj["status"] = "台账已出"
+    save_projects(projects)
+    return ev
+
+
+def discard_event(pid: str, eid: str) -> dict:
+    """作废待确认事件（作废不删除，与上游一致）。"""
+    projects = load_projects()
+    proj = find_project(projects, pid)
+    if proj is None:
+        raise KeyError(pid)
+    ev = _find_event(proj, eid)
+    if ev is None:
+        raise KeyError(eid)
+    if ev.get("status") != "待确认":
+        raise ValueError(f"事件 {eid} 已应用入账，不能作废")
+    ev["status"] = "已作废"
+    _touch(proj)
+    save_projects(projects)
+    return ev
+
+
+def set_status(pid: str, status: str) -> dict:
+    if status not in KNOWN_STATUS:
+        raise ValueError(f"未知项目状态 {status}")
+    projects = load_projects()
+    proj = find_project(projects, pid)
+    if proj is None:
+        raise KeyError(pid)
+    proj["status"] = status
+    _touch(proj)
+    save_projects(projects)
+    return proj
+
+
+# ---------------------------------------------------------------- 台账构建与导出
+def _project_ledgers(proj: dict):
+    """装配 + 双版本构建：V1 原始（无事件）与 V1 澄清后（已应用事件），互不污染。"""
+    catalog, suppliers, tax_profiles, sup_order, report = assemble_suppliers(_project_rec_results(proj))
+    events = proj.get("events", [])
+    amendments = [_to_amendment(e) for e in events if e.get("status") == "已应用"]
+    led_raw = led_clar = None
     if suppliers:
-        led = LedgerBuilder(catalog, suppliers, tax_profiles).build(_LEDGER_VERSION)
-        ledger = ledger_to_dict(led)
+        builder = LedgerBuilder(catalog, suppliers, tax_profiles)
+        led_raw = builder.build(_LEDGER_VERSION)
+        if amendments:
+            led_clar = builder.build("V1 澄清后（已应用人工确认事件）", amendments=amendments)
+    return catalog, suppliers, tax_profiles, sup_order, report, events, amendments, led_raw, led_clar
 
+
+def build_board(proj: dict) -> dict:
+    """项目全量工作台数据：清单 + 识别登记 + 双版本台账 + 事件 + 匹配报告。
+
+    每次请求现算（引擎为纯本地 Decimal 计算，代价可忽略）。"""
+    catalog_raw = json.loads((BACKEND / "data" / "gc017_catalog.json").read_text("utf-8"))
+    catalog, _sup, _tax, sup_order, report, events, _am, led_raw, led_clar = _project_ledgers(proj)
+    ledgers = {}
+    if led_raw is not None:
+        ledgers["v1_raw"] = ledger_to_dict(led_raw)
+    if led_clar is not None:
+        ledgers["v1_clarified"] = ledger_to_dict(led_clar)
     return {
         "project": proj,
-        "catalog": json.loads((BACKEND / "data" / "gc017_catalog.json").read_text("utf-8")),
+        "catalog": catalog_raw,
         "suppliers_order": sup_order,
         "files": proj.get("files", []),
-        "file_ids": file_ids,
-        "records": {str(r.get("vendor_guess") or "供"): r for r in recs},
-        "ledger": ledger,
+        "file_ids": [f.get("id") for f in proj.get("files", [])],
+        "records": {str(r.get("vendor_guess") or "供"): r for r in _project_rec_results(proj)},
+        "ledgers": ledgers,
+        "events": events,
         "match_report": report,
+        "counts": {
+            "pending_events": sum(1 for e in events if e.get("status") == "待确认"),
+            "unmatched": len(report.get("unmatched", [])),
+        },
     }
+
+
+def _proj_rate_map(tax_profiles: dict, amendments: list, clarified: bool) -> dict:
+    """原税率展示列（与 gen_workbooks._rate_map 同语义）：申报态取识别税率，
+    澄清后取 DECLARE_TAX 事件——不写死供应商名。"""
+    declares = {a.supplier: a.new for a in amendments if a.op == "DECLARE_TAX"}
+    out = {}
+    for s, tp in tax_profiles.items():
+        if tp.state.value in ("已声明", "已澄清") and tp.rate is not None:
+            r = tp.rate
+        else:
+            r = declares.get(s) if clarified else None
+        out[s] = f"{float(r) * 100:g}%" if r is not None else "未声明"
+    return out
+
+
+def _proj_invoice_status(tax_profiles: dict, amendments: list) -> dict:
+    """M5：申报过税率但未说明专票/普票的供应商立事项（项目报价均未采集发票类型）。"""
+    declared_in_events = {a.supplier for a in amendments if a.op == "DECLARE_TAX"}
+    return {s: {"declared": tp.state.value in ("已声明", "已澄清") or s in declared_in_events,
+                "invoice_type": tp.invoice_type}
+            for s, tp in tax_profiles.items()}
+
+
+def export_project(pid: str, version: str) -> Path:
+    """按版本把项目台账写成 5-sheet 比选台账 xlsx（企业模板副本填写）。"""
+    if version not in VERSION_LABEL:
+        raise ValueError(f"未知导出版本 {version}（v1_raw / v1_clarified）")
+    projects = load_projects()
+    proj = find_project(projects, pid)
+    if proj is None:
+        raise KeyError(pid)
+    catalog, _sup, tax_profiles, _order, _rep, _ev, amendments, led_raw, led_clar = _project_ledgers(proj)
+    led = led_clar if version == "v1_clarified" else led_raw
+    if led is None:
+        raise ValueError("项目尚无报价台账：请先在收集箱上传报价文件")
+    if version == "v1_clarified" and led_clar is None:
+        raise ValueError("尚无已应用事件，V1 澄清后版本未生成")
+    note = ("台账版本：V1 原始（收集箱识别归集，异常线索最全）" if version == "v1_raw"
+            else f"台账版本：V1 澄清后（已应用人工确认事件 {len(amendments)} 条，全程留痕见「操作记录」）")
+    OUT.mkdir(parents=True, exist_ok=True)
+    tpl = TEMPLATE if TEMPLATE.exists() else None
+    return write_ledger(led, catalog, OUT / f"{pid}_比选台账_{VERSION_LABEL[version]}.xlsx",
+                        _proj_rate_map(tax_profiles, amendments, clarified=(version == "v1_clarified")),
+                        qualifiers=None, qty_map={i: c["qty"] for i, c in catalog.items()},
+                        prev_totals=None, version_note=note, template_path=tpl,
+                        issue_source=led_raw, invoice_status=_proj_invoice_status(tax_profiles, amendments))

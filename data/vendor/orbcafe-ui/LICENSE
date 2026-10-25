@@ -1,0 +1,135 @@
+ORBCAFE UI Community License
+Version 1.0
+
+Copyright (c) ORBCAFE. All rights reserved.
+
+This license applies to ORBCAFE UI version 3.0.0 and later. Versions of
+ORBCAFE UI published before version 3.0.0 were released under the MIT
+License and remain available under their original license terms.
+
+----------------------------------------------------------------------------
+1. Definitions
+----------------------------------------------------------------------------
+
+"Software" means the ORBCAFE UI source code, object code, documentation,
+examples, themes, and related assets distributed in this repository and in
+the `orbcafe-ui` npm package.
+
+"Licensor" means ORBCAFE, the owner and maintainer of the Software.
+
+"You" means the individual or legal entity exercising rights under this
+license.
+
+"Internal Business Use" means use of the Software by You or by employees
+and contractors of Your organization, solely to build and operate
+applications, websites, portals, dashboards, and tools that are used
+internally by Your organization and that are not themselves sold, licensed,
+subscribed to, or delivered to third parties as software products or paid
+deliverables. Internal Business Use remains Internal Business Use
+regardless of the size, revenue, or corporate form of Your organization.
+
+"Community Use" means any of the following:
+
+  (a) Personal Use: use by individuals for personal projects, learning,
+      experimentation, and hobby development;
+  (b) Educational and Research Use: use in teaching, coursework, academic
+      research, and non-commercial scientific work;
+  (c) Evaluation Use: use to develop, test, prototype, demonstrate, or
+      evaluate the Software, including proofs of concept;
+  (d) Internal Business Use as defined above;
+  (e) Non-commercial Community Projects: use in projects that are not
+      sold, licensed, subscribed to, or delivered for a fee, and that do
+      not form part of a commercial software product.
+
+"Commercial Product Use" means any use of the Software that is not
+Community Use, including without limitation the uses listed in Section 3.
+
+----------------------------------------------------------------------------
+2. Grant for Community Use
+----------------------------------------------------------------------------
+
+Subject to the conditions of this license, Licensor grants You a
+worldwide, royalty-free, non-exclusive, non-transferable license to use,
+copy, modify, and distribute the Software for Community Use.
+
+You may redistribute the Software, in source or object form, only if:
+
+  (a) the redistribution itself is a Community Use;
+  (b) You retain this license text and all copyright notices in every
+      copy or substantial portion of the Software; and
+  (c) You do not charge a fee for the Software itself and do not present
+      the Software, in whole or in part, as a product You sell.
+
+----------------------------------------------------------------------------
+3. Commercial License Required
+----------------------------------------------------------------------------
+
+A separate written commercial license from the Licensor is required for
+any of the following uses of the Software:
+
+  (a) Commercial SaaS: offering a hosted or subscription service whose
+      user interface is built with the Software, where customers pay to
+      access the service;
+  (b) Commercial Software Products: distributing or licensing software
+      products that include the Software, whether sold perpetually, by
+      subscription, or otherwise commercially;
+  (c) Paid Customer Delivery: using the Software to build applications,
+      portals, or systems that You deliver to a customer or client in
+      exchange for payment, including consulting, outsourcing, and
+      system-integration engagements, even when the resulting system is
+      used only internally by that customer;
+  (d) OEM and White Label: embedding the Software in, or rebranding it
+      as, a product, platform, framework, or library that You provide to
+      third parties;
+  (e) Redistribution and Resale: selling, reselling, or commercially
+      redistributing the Software itself, with or without modification,
+      including as a component library, UI kit, design system, theme, or
+      template;
+  (f) Commercial Templates: selling or commercially licensing templates,
+      starters, or boilerplates built with the Software;
+  (g) Builder Platforms: using the Software as a component capability of
+      a low-code, no-code, UI builder, page builder, website builder,
+      app builder, dashboard builder, or design-system platform offered
+      to customers.
+
+In short: build for yourself or your own organization — free. Build
+software for customers — a commercial license is required.
+
+To obtain a commercial license, see COMMERCIAL_LICENSE.md.
+
+----------------------------------------------------------------------------
+4. Trademarks
+----------------------------------------------------------------------------
+
+This license does not grant any right to use the names, logos, or
+trademarks of ORBCAFE, including "ORBCAFE" and "ORBCAFE UI". You may
+accurately state that Your application is "built with ORBCAFE UI", but
+You may not present Your product as an official ORBCAFE product, nor use
+the ORBCAFE name or logo in a way that suggests endorsement, without
+prior written permission.
+
+----------------------------------------------------------------------------
+5. Contributions
+----------------------------------------------------------------------------
+
+Unless You and the Licensor have agreed otherwise in writing,
+contributions You submit to the Software are licensed as described in
+CONTRIBUTING.md, including the grant of rights the Licensor needs to
+distribute the Software under both this Community License and commercial
+licenses.
+
+----------------------------------------------------------------------------
+6. No Warranty
+----------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+LICENSOR OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+----------------------------------------------------------------------------
+
+SPDX: LicenseRef-ORBCAFE-Community-1.0

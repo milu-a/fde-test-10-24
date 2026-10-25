@@ -4,24 +4,55 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>分包比选工作台 · GC-017 山南勘测</title>
+<!-- orbcafe-ui@3.1.8 官方 ORBIS 设计系统 CSS（自写样式 + 品牌主题包，本地 vendored） -->
+<link rel="stylesheet" href="data/vendor/orbcafe-ui/orbis.css">
+<link rel="stylesheet" href="data/vendor/orbcafe-ui/themes/orbis.css">
 <link rel="stylesheet" href="data/app/style.css">
 </head>
-<body>
+<body class="orb-root">
+<div class="app-shell">
 
-<!-- ============ 顶栏（Night Blue 舞台 · Logo 居右上） ============ -->
-<header class="topbar">
-  <div class="brand"><b>分包比选工作台</b><span>归集 · 核对 · 台账 · 留痕</span></div>
-  <div class="spacer"></div>
-  <span class="chip offline" id="onlChip">内网离线模式</span>
-  <span class="toggle" id="onlToggle" title="演示用：切换离线/在线，观察 AI 触点降级"><span class="tk"></span>模拟第三方接口</span>
-  <span style="font-size:12px;color:rgba(255,255,255,.65)">商务人员A</span>
-  <img class="logo" src="data/design/logo/ORBIS-Logo-d-RGB.svg" alt="ORBIS">
-</header>
+<!-- ============ 左侧导航岛（orb-navigation-island-v2 玻璃岛 · 比选项目树 + 工作区功能） ============ -->
+<aside class="sidenav orb-navigation-island-v2">
+  <div class="nav-brand">
+    <span class="orb-app-header-default-logo">比</span>
+    <div class="brand-copy"><b>分包比选工作台</b><span>归集 · 核对 · 台账 · 留痕</span></div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-label">比选项目</div>
+    <div id="navProjects"></div>
+    <!-- 工作区功能分组：选中项目后才展示（app.js renderNav 控制显隐） -->
+    <div id="navFuncWrap" style="display:none">
+      <div class="nav-label">工作区功能</div>
+      <nav class="nav-funcs">
+        <button class="tab orb-tab" data-tab="1">① 收集箱 <span class="cnt" id="tabCnt1">0</span></button>
+        <button class="tab orb-tab active" data-tab="2">② 统一对比台账 <span class="star">★</span></button>
+        <button class="tab orb-tab" data-tab="3">③ 事件与澄清 <span class="cnt" id="tabCnt3">0</span></button>
+        <button class="tab orb-tab" data-tab="4">④ 版本与差异</button>
+        <button class="tab orb-tab" data-tab="5">⑤ 导出交付</button>
+      </nav>
+    </div>
+  </div>
+  <div class="nav-foot">
+    <button class="orb-btn orb-btn-primary orb-btn-block" id="btnNewProj">＋ 新建比选项目</button>
+    <div class="nav-foot-row">
+      <span class="chip orb-chip orb-chip-blue offline" id="onlChip">内网离线模式</span>
+      <span class="toggle" id="onlToggle" title="演示用：切换离线/在线，观察 AI 触点降级"><span class="tk"></span>模拟第三方接口</span>
+    </div>
+    <div class="nav-user">
+      <span class="orb-avatar">商</span>
+      <span class="user-copy"><b>商务人员A</b><span>分包比选 · 商务归集</span></span>
+      <img class="logo" src="data/design/logo/ORBIS-Logo-d-RGB.svg" alt="ORBIS">
+    </div>
+  </div>
+</aside>
 
+<div class="main-col">
 <!-- ============ 视图一：首页 · 比选项目列表 ============ -->
 <main id="viewHome" class="view page">
   <div class="hero">
     <div class="tagline">We digitalize you · 归集—核对—台账</div>
+    <div class="rule"></div>
     <h1>分包比选工作台</h1>
     <p>把各说各话的报价，变成可核对、可追溯、可继续修改的比选依据。口径清楚、异常可核对、每项数字有出处；系统只整理证据，判断权留给商务部与评审组。</p>
   </div>
@@ -29,8 +60,15 @@
     <div class="petrol-line"></div>
     <h1>比选项目</h1>
     <span class="sub">按项目组织一轮比选的全部文件、事件与台账版本</span>
-    <span style="flex:1"></span>
-    <button class="btn primary" id="btnNewProj">＋ 新建比选项目</button>
+  </div>
+  <!-- 项目检索与状态筛选（只过滤主区卡片，左侧导航始终按时间分组展示全部项目） -->
+  <div class="proj-toolbar">
+    <div class="orb-inp-adornment-wrap proj-search">
+      <span class="orb-inp-adornment">⌕</span>
+      <input class="orb-inp" id="projSearch" placeholder="搜索项目编号或名称…">
+    </div>
+    <button class="orb-chip orb-chip-blue proj-month" id="projMonthChip" data-mclear="1" style="display:none" title="点击清除时间筛选">时间：<span id="projMonthChipText"></span> ✕</button>
+    <div class="an-filter proj-filter" id="projFilter"></div>
   </div>
   <div class="proj-grid" id="projGrid"></div>
 </main>
@@ -39,36 +77,30 @@
 <main id="viewProject" class="view page">
 
   <!-- 项目上下文条 -->
-  <div class="card ctxbar">
-    <button class="back" id="backHome">← 返回项目列表</button>
+  <div class="card orb-card orb-card-raised ctxbar">
+    <button class="back orb-link" id="backHome">← 返回项目列表</button>
     <h2 id="ctxTitle">GC-017 · 园区测量检测分包</h2>
     <span class="badge st-clarify" id="ctxBadge">待澄清</span>
     <div class="ctx-meta" id="ctxMeta"></div>
     <div class="grow"></div>
+    <button class="orb-btn orb-btn-sm orb-btn-neutral" id="btnQuickUpload" style="display:none">＋ 上传报价</button>
     <span style="font-size:12px;color:var(--ink-4)" id="verLabel">台账版本</span>
     <div class="ver-switch" id="verSwitch"></div>
   </div>
 
-  <!-- 页签导航 -->
-  <nav class="tabs">
-    <button class="tab" data-tab="1">① 收集箱 <span class="cnt" id="tabCnt1">0</span></button>
-    <button class="tab active" data-tab="2">② 统一对比台账 <span class="star">★</span></button>
-    <button class="tab" data-tab="3">③ 事件与澄清 <span class="cnt" id="tabCnt3">0</span></button>
-    <button class="tab" data-tab="4">④ 版本与差异</button>
-    <button class="tab" data-tab="5">⑤ 导出交付</button>
-  </nav>
+  <!-- 页签导航已移至左侧导航岛「工作区功能」分组 -->
 
   <!-- 页签① 收集箱 -->
   <section class="tabpane" id="paneInbox">
     <div class="inbox">
-      <div class="card panel">
+      <div class="card orb-card panel">
         <h3><span class="petrol-line"></span>原件归档区（只读）</h3>
         <p class="hint">上传即落位只读原件区（同名另存不覆盖），识别通道自动路由；缺失值只标记不硬猜。</p>
         <div class="dropzone" id="dropzone">拖拽文件到此处，或 <b>点击选择</b>　——　登记到本项目 · 识别通道自动路由</div>
         <div id="recList" style="margin-bottom:12px"></div>
         <div id="fileList"></div>
       </div>
-      <div class="card panel">
+      <div class="card orb-card panel">
         <h3><span class="petrol-line"></span>待人工确认队列</h3>
         <p class="hint">低置信识别、空值与冲突进入此队列；未确认不入账。两条路径（人工登记 / AI 提取）共用本队列。</p>
         <div id="queueList"></div>
@@ -77,35 +109,50 @@
   </section>
 
   <!-- 页签② 统一对比台账 -->
-  <section class="tabpane show" id="paneLedger">
-    <div class="card panel">
-      <h3><span class="petrol-line"></span>统一对比台账 <span class="badge st-clarify" id="ctxVersion">V0</span>
-        <span style="flex:1"></span><span style="font-size:12px;font-weight:400;color:var(--ink-4)">点击任意金额 → 回查原件出处 · 系统不推荐中标</span></h3>
-      <div class="legend" id="legendBar">
-        <span><i class="lg-restated"></i>澄清修正</span>
-        <span><i class="lg-recomp"></i>变更重算</span>
-        <span><i class="lg-pending"></i>待确认（不入合计）</span>
-        <span><i class="lg-missing"></i>缺失</span>
-        <span><i class="lg-nocomp"></i>口径不可比</span>
-        <span><i class="lg-dot"></i>异常线索（原值保留）</span>
+  <section class="tabpane" id="paneLedger">
+    <div class="drawer-host">
+      <div class="card orb-card panel">
+        <h3><span class="petrol-line"></span>统一对比台账 <span class="badge st-clarify" id="ctxVersion">V0</span>
+          <span class="ver-switch mode-switch" id="amountMode" title="切换台账金额口径（含税 / 未税）">
+            <button data-amt="hs" class="active">含税金额</button>
+            <button data-amt="ws">未税金额</button>
+          </span>
+          <span style="flex:1"></span><span style="font-size:12px;font-weight:400;color:var(--ink-4)">点击任意单元格 → 右侧抽屉追溯 · 系统不推荐中标</span></h3>
+        <div id="ledgerEmpty" class="hidden" style="padding:28px 10px;text-align:center;color:var(--ink-4);font-size:13px;line-height:2">
+          尚无统一台账：先到①收集箱上传供应商报价原件（Excel / PDF / 扫描件 / 截图均可），<br>
+          识别记录自动匹配统一清单并经引擎计算后，此处生成 V1 原始台账——异常只提示，不改写原值。
+        </div>
+        <div class="tbl-wrap" id="ledgerWrap"><table class="orb-tbl ledger" id="ledger"></table></div>
+        <div class="legend orb-legend" id="legendBar">
+          <span><i class="lg-missing"></i>未报（不当 0）</span>
+          <span><i class="lg-pending"></i>税率未给（不可折算）</span>
+          <span><i class="lg-restated"></i>澄清修正</span>
+          <span><i class="lg-recomp"></i>变更重算</span>
+          <span><i class="lg-flag"></i>橙色底线 = 有异常旗标（原值保留）· 点击单元格在右侧抽屉追溯</span>
+          <span><i class="ws-ast">*</i>未税口径 · 税率未声明（含税不可折算，本列显示未税额）</span>
+        </div>
       </div>
-      <div id="ledgerEmpty" class="hidden" style="padding:28px 10px;text-align:center;color:var(--ink-4);font-size:13px;line-height:2">
-        尚无统一台账：先到①收集箱上传供应商报价原件（Excel / PDF / 扫描件 / 截图均可），<br>
-        识别记录自动匹配统一清单并经引擎计算后，此处生成 V1 原始台账——异常只提示，不改写原值。
-      </div>
-      <div class="tbl-wrap" id="ledgerWrap"><table class="ledger" id="ledger"></table></div>
+      <!-- 可拖拽分隔条：按住左右滑动调节表格与抽屉占比，双击恢复默认 -->
+      <div class="splitter" id="splitter" title="拖动调节表格与抽屉的宽度占比 · 双击恢复默认"><i></i></div>
+      <!-- 单元格抽屉：从右推出、挤占表格空间而非遮挡 -->
+      <aside class="cell-drawer" id="cellDrawer">
+        <div class="cd-inner">
+          <div class="cd-head"><b>追溯 · 单元格明细</b><button class="orb-icon-btn" id="cdClose" title="关闭抽屉">✕</button></div>
+          <div class="cd-body" id="cdBody"></div>
+        </div>
+      </aside>
     </div>
   </section>
 
   <!-- 页签③ 事件与澄清 -->
   <section class="tabpane" id="paneEvents">
-    <div class="card panel">
+    <div class="card orb-card panel">
       <h3><span class="petrol-line"></span>异常与待核查清单</h3>
       <p class="hint">异常只提示不改写；关闭必须来自经人工确认的事件，并保留关闭依据。</p>
       <div class="an-filter" id="anFilter"></div>
       <div id="anList"></div>
     </div>
-    <div class="card panel">
+    <div class="card orb-card panel">
       <h3><span class="petrol-line"></span>事件时间轴（双路径登记）</h3>
       <p class="hint">路径A 人工结构化登记（离线可用）· 路径B AI 提取（第三方接口，缓存后逐条确认）——产出同一事件候选，同一确认关口。</p>
       <div class="evt-entries" id="evtEntries"></div>
@@ -115,16 +162,16 @@
 
   <!-- 页签④ 版本与差异 -->
   <section class="tabpane" id="paneVersions">
-    <div class="card panel">
+    <div class="card orb-card panel">
       <h3><span class="petrol-line"></span>版本时间轴</h3>
       <div class="vtimeline" id="vtimeline"></div>
       <div class="sumbar" id="sumBar"></div>
       <h3 style="margin-top:8px"><span class="petrol-line"></span>版本差异对比</h3>
-      <div class="vsel">
+      <div class="vsel" id="diffSel">
         <span>对比</span>
-        <select id="diffA"><option>V0</option><option>V1</option><option>V2</option></select>
+        <select id="diffA" class="orb-inp"><option>V0</option><option>V1</option><option>V2</option></select>
         <span>→</span>
-        <select id="diffB"><option>V0</option><option>V1</option><option>V2</option></select>
+        <select id="diffB" class="orb-inp"><option>V0</option><option>V1</option><option>V2</option></select>
         <span style="color:var(--ink-4)">每行差异可追溯到触发事件与条款依据</span>
       </div>
       <div id="diffWrap" style="overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
@@ -136,17 +183,17 @@
   <!-- 页签⑤ 导出交付 -->
   <section class="tabpane" id="paneExport">
     <div class="exp-grid">
-      <div class="card panel">
+      <div class="card orb-card panel">
         <h3><span class="petrol-line"></span>导出自检（不阻断 · 如实呈现）</h3>
         <p class="hint">未确认事项将写入「需补充事项」表随包交付——交付的不是"完美台账"，是可信的证据链。</p>
         <div id="expChk"></div>
         <div style="margin-top:14px;display:flex;gap:10px">
-          <button class="btn primary" id="btnExport">导出五表台账 + 异常报告</button>
-          <button class="btn" id="btnDeliver">标记为已交付评审</button>
+          <button class="orb-btn orb-btn-primary" id="btnExport">导出五表台账 + 异常报告</button>
+          <button class="orb-btn orb-btn-neutral" id="btnDeliver">标记为已交付评审</button>
         </div>
-        <div class="split-note">🔒 输出与原件物理分离：原件区 data/raw 只读；本工作台输出至独立输出目录。补录、修改与应用事件全部自动写入「操作记录」表。</div>
+        <div class="orb-alert orb-alert-info split-note">🔒 输出与原件物理分离：原件区 data/raw 只读；本工作台输出至独立输出目录。补录、修改与应用事件全部自动写入「操作记录」表。</div>
       </div>
-      <div class="card panel">
+      <div class="card orb-card panel">
         <h3><span class="petrol-line"></span>三版本台账下载（M2 生成器）</h3>
         <p class="hint">三版互不覆盖——V1 原始 / V1 澄清后 / V2 变更后各一份（规则第六条：原件永不覆盖）。导出即写出 5-sheet xlsx：对比表 / 需补充事项 / 操作记录 / 报价明细 / 资格材料清单，表头与企业《比选输出模板》逐字一致。</p>
         <div id="stageDl"></div>
@@ -156,53 +203,46 @@
     </div>
   </section>
 </main>
-
-<!-- ============ 弹层：来源回查 ============ -->
-<div class="overlay" id="mSrc">
-  <div class="modal wide">
-    <div class="mhead"><b>来源回查 · 每项数字有出处</b><button class="mclose">✕</button></div>
-    <div class="mbody" id="mSrcBody"></div>
-    <div class="mfoot"><button class="btn mclose">关闭</button></div>
-  </div>
-</div>
+</div><!-- /main-col -->
+</div><!-- /app-shell -->
 
 <!-- ============ 弹层：差异预演 ============ -->
-<div class="overlay" id="mDry">
+<div class="overlay orb-overlay" id="mDry">
   <div class="modal wide">
-    <div class="mhead"><b id="mDryTitle">差异预演</b><button class="mclose">✕</button></div>
+    <div class="mhead"><b id="mDryTitle">差异预演</b><button class="orb-icon-btn mclose">✕</button></div>
     <div class="mbody">
       <p style="font-size:13px;color:var(--ink-3)">应用前先看影响：以下为确认后将发生的全部变化。确认前不动账。</p>
       <div class="dry-sum" id="mDrySum"></div>
       <div id="mDryRows"></div>
     </div>
-    <div class="mfoot"><button class="btn mclose">再想想</button><button class="btn petrol" id="mDryApply">确认并应用 → 生成新版本</button></div>
+    <div class="mfoot"><button class="orb-btn orb-btn-neutral mclose">再想想</button><button class="orb-btn orb-btn-accent" id="mDryApply">确认并应用 → 生成新版本</button></div>
   </div>
 </div>
 
 <!-- ============ 弹层：登记事件（路径A · 人工） ============ -->
-<div class="overlay" id="mReg">
+<div class="overlay orb-overlay" id="mReg">
   <div class="modal">
-    <div class="mhead"><b>登记事件 · 人工结构化路径（离线可用）</b><button class="mclose">✕</button></div>
+    <div class="mhead"><b>登记事件 · 人工结构化路径（离线可用）</b><button class="orb-icon-btn mclose">✕</button></div>
     <div class="mbody" id="mRegBody"></div>
-    <div class="mfoot"><button class="btn mclose">取消</button><button class="btn primary" id="mRegOk">提交 → 进入待确认队列</button></div>
+    <div class="mfoot"><button class="orb-btn orb-btn-neutral mclose">取消</button><button class="orb-btn orb-btn-primary" id="mRegOk">提交 → 进入待确认队列</button></div>
   </div>
 </div>
 
 <!-- ============ 弹层：证据查看 ============ -->
-<div class="overlay" id="mEv">
+<div class="overlay orb-overlay" id="mEv">
   <div class="modal">
-    <div class="mhead"><b>异常证据 · 定位原文</b><button class="mclose">✕</button></div>
+    <div class="mhead"><b>异常证据 · 定位原文</b><button class="orb-icon-btn mclose">✕</button></div>
     <div class="mbody" id="mEvBody"></div>
-    <div class="mfoot"><button class="btn mclose">关闭</button></div>
+    <div class="mfoot"><button class="orb-btn orb-btn-neutral mclose">关闭</button></div>
   </div>
 </div>
 
 <!-- ============ 弹层：新建比选项目 ============ -->
-<div class="overlay" id="mNew">
+<div class="overlay orb-overlay" id="mNew">
   <div class="modal">
-    <div class="mhead"><b>新建比选项目</b><button class="mclose">✕</button></div>
+    <div class="mhead"><b>新建比选项目</b><button class="orb-icon-btn mclose">✕</button></div>
     <div class="mbody" id="mNewBody"></div>
-    <div class="mfoot"><button class="btn mclose">取消</button><button class="btn primary" id="mNewOk">创建项目</button></div>
+    <div class="mfoot"><button class="orb-btn orb-btn-neutral mclose">取消</button><button class="orb-btn orb-btn-primary" id="mNewOk">创建项目</button></div>
   </div>
 </div>
 
